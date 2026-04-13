@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   update-code-json:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'CMSgov' && format('codebuild-emmy-github-runner-emmy-app-{0}-{1}', github.run_id, github.run_attempt) || 'ubuntu-latest' }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -25,4 +25,4 @@ jobs:
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH: "main"
-          SKIP_PR: "false" 
+          SKIP_PR: "false"

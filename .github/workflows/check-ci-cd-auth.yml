@@ -18,7 +18,7 @@ permissions:
 jobs:
   caller-identity:
     name: Check caller identity
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'CMSgov' && format('codebuild-emmy-github-runner-emmy-app-{0}-{1}', github.run_id, github.run_attempt) || 'ubuntu-latest' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

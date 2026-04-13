@@ -27,7 +27,7 @@ jobs:
   get-commit-hash:
     name: Get commit hash
     if: github.repository_owner == 'DSACMS'
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'CMSgov' && format('codebuild-emmy-github-runner-emmy-app-{0}-{1}', github.run_id, github.run_attempt) || 'ubuntu-latest' }}
     outputs:
       commit_hash: ${{ steps.get-commit-hash.outputs.commit_hash }}
     steps:
@@ -43,7 +43,7 @@ jobs:
   build-and-publish:
     name: Build and publish
     if: github.repository_owner == 'DSACMS'
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'CMSgov' && format('codebuild-emmy-github-runner-emmy-app-{0}-{1}', github.run_id, github.run_attempt) || 'ubuntu-latest' }}
     needs: get-commit-hash
     concurrency: ${{ github.workflow }}-${{ needs.get-commit-hash.outputs.commit_hash }}
 

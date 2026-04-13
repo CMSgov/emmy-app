@@ -27,7 +27,7 @@ jobs:
     secrets: inherit
   run-migrations:
     name: Run migrations
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'CMSgov' && format('codebuild-emmy-github-runner-emmy-app-{0}-{1}', github.run_id, github.run_attempt) || 'ubuntu-latest' }}
     needs: [build-and-publish]
 
     permissions:

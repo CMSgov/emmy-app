@@ -7,7 +7,7 @@ on:
 jobs:
   rspec:
     name: Rubocop
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'CMSgov' && format('codebuild-emmy-github-runner-emmy-app-{0}-{1}', github.run_id, github.run_attempt) || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Ruby & Javascript

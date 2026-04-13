@@ -8,7 +8,7 @@ on:
 jobs:
   check-first-run:
     name: Check For First Run
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'CMSgov' && format('codebuild-emmy-github-runner-emmy-app-{0}-{1}', github.run_id, github.run_attempt) || 'ubuntu-latest' }}
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     permissions:
@@ -23,7 +23,7 @@ jobs:
             echo "should_run=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          
+
           # Check if initialization label exists
           has_label=$(gh label list --json name | jq '.[] | select(.name=="repolinter-initialized")')
 
@@ -42,14 +42,14 @@ jobs:
     needs: check-first-run
     if: needs.check-first-run.outputs.should_run == 'true'
     uses: DSACMS/repo-scaffolder/.github/workflows/extendJSONFile.yml@main
-    with: 
+    with:
       url_to_json: 'https://raw.githubusercontent.com/DSACMS/repo-scaffolder/main/tier4/%7B%7Bcookiecutter.project_slug%7D%7D/repolinter.json'
-  
+
   repolinter-checks:
     name: Tier 4 Checks
     needs: [check-first-run, resolve-repolinter-json]
     if: needs.check-first-run.outputs.should_run == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'CMSgov' && format('codebuild-emmy-github-runner-emmy-app-{0}-{1}', github.run_id, github.run_attempt) || 'ubuntu-latest' }}
     permissions:
       contents: write
       pull-requests: write

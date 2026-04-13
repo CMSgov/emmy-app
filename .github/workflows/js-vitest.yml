@@ -1,4 +1,4 @@
-name: Vitest Javascript Unit Tests 
+name: Vitest Javascript Unit Tests
 
 on:
   pull_request:
@@ -6,12 +6,12 @@ on:
 
 jobs:
   vitest:
-    name: Vitest 
-    runs-on: ubuntu-latest
+    name: Vitest
+    runs-on: ${{ github.repository_owner == 'CMSgov' && format('codebuild-emmy-github-runner-emmy-app-{0}-{1}', github.run_id, github.run_attempt) || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Ruby & Javascript
         uses: ./.github/actions/setup-languages
-      - name: Run Vitest 
+      - name: Run Vitest
         working-directory: app
-        run: npm run test 
+        run: npm run test

@@ -12,7 +12,7 @@ on:
 jobs:
   lint-markdown:
     name: Lint markdown
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'CMSgov' && format('codebuild-emmy-github-runner-emmy-app-{0}-{1}', github.run_id, github.run_attempt) || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       # This is the GitHub Actions-friendly port of the linter used in the Makefile.
