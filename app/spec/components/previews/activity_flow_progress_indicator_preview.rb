@@ -6,7 +6,14 @@ class ActivityFlowProgressIndicatorPreview < ApplicationPreview
     result = make_result(Date.new(2026, 1, 1), hours.to_f)
 
     render ActivityFlowProgressIndicator.new(
-      agency_full_name: "Test Agency",
+      monthly_calculation_results: [ result ]
+    )
+  end
+
+  def one_month_dollars_default
+    result = make_result(Date.new(2026, 1, 1), 77, earnings_cents: 597_00)
+
+    render ActivityFlowProgressIndicator.new(
       monthly_calculation_results: [ result ]
     )
   end
@@ -24,7 +31,6 @@ class ActivityFlowProgressIndicatorPreview < ApplicationPreview
     results << make_result(Date.new(2025, 10, 1), month_4_hours) if num_months.to_i > 3
 
     render ActivityFlowProgressIndicator.new(
-      agency_full_name: "Test Agency",
       monthly_calculation_results: results
     )
   end
@@ -35,7 +41,17 @@ class ActivityFlowProgressIndicatorPreview < ApplicationPreview
     results << make_result(Date.new(2025, 12, 1), 91)
 
     render ActivityFlowProgressIndicator.new(
-      agency_full_name: "Test Agency",
+      monthly_calculation_results: results
+    )
+  end
+
+  def many_months_mixed_units
+    results = []
+    results << make_result(Date.new(2026, 1, 1), 77, earnings_cents: 597_00) # dollars
+    results << make_result(Date.new(2025, 12, 1), 82, earnings_cents: 620_00) # hours
+    results << make_result(Date.new(2025, 11, 1), 40, earnings_cents: 200_00) # hours
+
+    render ActivityFlowProgressIndicator.new(
       monthly_calculation_results: results
     )
   end
@@ -51,7 +67,6 @@ class ActivityFlowProgressIndicatorPreview < ApplicationPreview
     results << make_result(Date.new(2025, 8, 1), 0)
 
     render ActivityFlowProgressIndicator.new(
-      agency_full_name: "Test Agency",
       monthly_calculation_results: results,
       variant: :renewal,
       required_month_count: required_months.to_i
@@ -69,7 +84,6 @@ class ActivityFlowProgressIndicatorPreview < ApplicationPreview
     results << make_result(Date.new(2025, 8, 1), 93)
 
     render ActivityFlowProgressIndicator.new(
-      agency_full_name: "Test Agency",
       monthly_calculation_results: results,
       variant: :renewal,
       required_month_count: required_months.to_i
@@ -78,11 +92,23 @@ class ActivityFlowProgressIndicatorPreview < ApplicationPreview
 
   private
 
-  def make_result(month, hours)
+  def make_result(month, hours, earnings_cents: 0)
+    meets_threshold = hours.to_f >= ActivityFlowProgressCalculator::PER_MONTH_HOURS_THRESHOLD ||
+      earnings_cents >= ActivityFlowProgressCalculator::PER_MONTH_EARNINGS_THRESHOLD
+
+    default_unit = if earnings_cents >= ActivityFlowProgressCalculator::PER_MONTH_EARNINGS_THRESHOLD &&
+                      hours.to_f < ActivityFlowProgressCalculator::PER_MONTH_HOURS_THRESHOLD
+                     :dollars
+                   else
+                     :hours
+                   end
+
     ActivityFlowProgressCalculator::MonthlyResult.new(
       month: month,
       total_hours: hours.to_f,
-      meets_requirements: hours.to_f > ActivityFlowProgressCalculator::PER_MONTH_HOURS_THRESHOLD
+      total_earnings_cents: earnings_cents,
+      default_unit: default_unit,
+      meets_requirements: meets_threshold
     )
   end
 end
