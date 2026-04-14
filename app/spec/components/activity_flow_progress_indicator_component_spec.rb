@@ -6,7 +6,6 @@ RSpec.describe ActivityFlowProgressIndicator, type: :component do
   subject(:component) do
     described_class.new(
       monthly_calculation_results: monthly_calculation_results,
-      agency_full_name: "Test Agency",
       variant: variant,
       required_month_count: required_month_count
     )
@@ -22,7 +21,7 @@ RSpec.describe ActivityFlowProgressIndicator, type: :component do
   end
   let(:monthly_calculation_results) { [ monthly_result ] }
   let(:hours) { 40 }
-  let(:variant) { :standard }
+  let(:variant) { :application }
   let(:required_month_count) { nil }
   let(:expected_title) do
     I18n.t(
@@ -31,11 +30,11 @@ RSpec.describe ActivityFlowProgressIndicator, type: :component do
     )
   end
 
-  it "renders the title and description" do
+  it "renders the title without description for application variants" do
     render_inline(component)
 
     expect(page).to have_css("h2", text: expected_title)
-    expect(page).to have_content(I18n.t("activity_flow_progress_indicator.description"))
+    expect(page).not_to have_css(".activity-flow-progress-indicator__description")
   end
 
   it "renders inside a card component" do
@@ -47,9 +46,10 @@ RSpec.describe ActivityFlowProgressIndicator, type: :component do
   it "renders the completion threshold and hours label" do
     render_inline(component)
 
-    expect(page).to have_content(
+    expect(page.find(".activity-flow-progress-indicator__progress-amount-container")).to have_text(
       "#{ActivityFlowProgressCalculator::PER_MONTH_HOURS_THRESHOLD} " \
-      "#{I18n.t("activity_flow_progress_indicator.hours")}"
+      "#{I18n.t("activity_flow_progress_indicator.hours")}",
+      normalize_ws: true
     )
   end
 
@@ -58,6 +58,56 @@ RSpec.describe ActivityFlowProgressIndicator, type: :component do
 
     progress = page.find(:css, ".activity-flow-progress-indicator__progress-bar-fill")
     expect(progress["style"]).to eq("width: 50.0%")
+  end
+
+  context "when monthly default unit is dollars" do
+    let(:monthly_result) do
+      ActivityFlowProgressCalculator::MonthlyResult.new(
+        month: reporting_month,
+        total_hours: 77,
+        total_earnings_cents: 597_00,
+        default_unit: :dollars,
+        meets_requirements: true
+      )
+    end
+
+    it "renders dollars for amount and threshold" do
+      render_inline(component)
+
+      row_text = page.find(".activity-flow-progress-indicator__progress-amount-container").text.squish
+
+      expect(row_text).to include("$597 / $580")
+      expect(row_text).not_to include(I18n.t("activity_flow_progress_indicator.hours"))
+      expect(page).to have_css(".activity-flow-progress-indicator__progress-bar--complete")
+      expect(page).to have_css(".activity-flow-progress-indicator__success-icon")
+    end
+
+    it "calculates progress width using dollars threshold" do
+      render_inline(component)
+
+      progress = page.find(:css, ".activity-flow-progress-indicator__progress-bar-fill")
+      expect(progress["style"]).to eq("width: 100%")
+    end
+  end
+
+  context "when hours and earnings both meet threshold" do
+    let(:monthly_result) do
+      ActivityFlowProgressCalculator::MonthlyResult.new(
+        month: reporting_month,
+        total_hours: 82,
+        total_earnings_cents: 620_00,
+        default_unit: :hours,
+        meets_requirements: true
+      )
+    end
+
+    it "keeps hours as the rendered unit" do
+      render_inline(component)
+
+      row_text = page.find(".activity-flow-progress-indicator__progress-amount-container").text.squish
+      expect(row_text).to include("82 / 80 #{I18n.t("activity_flow_progress_indicator.hours")}")
+      expect(row_text).not_to include("$620 / $580")
+    end
   end
 
   it "does not show the 'months completed' message" do
@@ -80,13 +130,6 @@ RSpec.describe ActivityFlowProgressIndicator, type: :component do
       render_inline(component)
 
       expect(page).to have_css(".activity-flow-progress-indicator__success-icon")
-    end
-
-    it "renders the 'completed' copy variants for header and description" do
-      render_inline(component)
-
-      expect(page).to have_text(I18n.t("activity_flow_progress_indicator.title_complete"))
-      expect(page).to have_text(I18n.t("activity_flow_progress_indicator.description_complete", agency_full_name: "Test Agency"))
     end
   end
 
@@ -115,11 +158,11 @@ RSpec.describe ActivityFlowProgressIndicator, type: :component do
   context "when variant is unsupported" do
     let(:variant) { :future_variant }
 
-    it "falls back to standard rendering" do
+    it "falls back to application rendering" do
       render_inline(component)
 
       expect(page).to have_css("h2", text: expected_title)
-      expect(page).to have_content(I18n.t("activity_flow_progress_indicator.description"))
+      expect(page).not_to have_css(".activity-flow-progress-indicator__description")
     end
   end
 
@@ -163,7 +206,8 @@ RSpec.describe ActivityFlowProgressIndicator, type: :component do
     it "includes a 'months completed' message" do
       render_inline(component)
 
-      expect(page).to have_css(".activity-flow-progress-indicator", text: "1 / 3 months completed")
+      expect(page).to have_css("h2", text: "1/3 months completed")
+      expect(page).not_to have_css(".activity-flow-progress-indicator__months-completed")
     end
   end
 
@@ -214,6 +258,12 @@ RSpec.describe ActivityFlowProgressIndicator, type: :component do
       )
     end
 
+    it "shows a success icon in the header when renewal requirements are complete" do
+      render_inline(component)
+
+      expect(page).to have_css("h2 .activity-flow-progress-indicator__success-icon")
+    end
+
     it "renders renewal months oldest to newest" do
       render_inline(component)
 
@@ -222,19 +272,6 @@ RSpec.describe ActivityFlowProgressIndicator, type: :component do
         .map { |row| row.find("span", match: :first).text.strip }
 
       expect(month_labels).to eq([ "August", "September", "October", "November", "December", "January" ])
-    end
-
-    it "does not render the default completed copy variants" do
-      render_inline(component)
-
-      expect(page).not_to have_text(I18n.t("activity_flow_progress_indicator.title_complete"))
-      expect(page).not_to have_text(I18n.t("activity_flow_progress_indicator.description_complete", agency_full_name: "Test Agency"))
-    end
-
-    it "does not render the multi-month completion banner copy" do
-      render_inline(component)
-
-      expect(page).not_to have_text("1 / 3 months completed")
     end
 
     context "when completed months are below the required count" do
@@ -277,6 +314,17 @@ RSpec.describe ActivityFlowProgressIndicator, type: :component do
         render_inline(component)
 
         expect(page).to have_css("h2", text: "2/3 months completed")
+      end
+    end
+
+    context "when required_month_count is omitted" do
+      let(:required_month_count) { nil }
+
+      it "defaults required_month_count to the reporting window length" do
+        render_inline(component)
+
+        expect(page).to have_css("h2", text: "4/6 months completed")
+        expect(page).not_to have_css(".activity-flow-progress-indicator__description")
       end
     end
   end
