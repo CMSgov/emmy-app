@@ -1,0 +1,35 @@
+# The purpose of this class is to allow us to file events with multiple event providers at once
+# If we no longer need to do this, it may be that this class has outlived its usefulness!
+class GenericEventTracker
+  def track(event_type, request, attributes = {})
+    merged_attributes = attributes.with_defaults(prep_request_attributes(request))
+    if request.present?
+      request_data = { headers: { "User-Agent": request.headers["User-Agent"] }, remote_ip: request.remote_ip }
+    else
+      request_data = nil
+    end
+    EventTrackingJob.perform_later(event_type, request_data, merged_attributes)
+  rescue => ex
+    Rails.logger.error "Unable to track event (#{event_type}): #{ex}, line: #{ex.backtrace&.first}"
+    raise unless Rails.env.production?
+  end
+
+  private
+
+  def prep_request_attributes(request)
+    defaults = { time: Time.now.to_i }
+    if request.present?
+      url_params = request.params.slice("client_agency_id", "locale")
+
+      defaults = defaults.merge({
+        device_id: request.cookie_jar.signed[:device_id],
+        ip: request.remote_ip,
+        cbv_flow_id: request.session[:flow_id],
+        client_agency_id: url_params["client_agency_id"],
+        locale: url_params["locale"] || I18n.locale.to_s,
+        user_agent: request.headers["User-Agent"]
+      })
+    end
+    defaults
+  end
+end

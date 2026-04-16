@@ -1,0 +1,102 @@
+#
+# This file configures the New Relic Agent.  New Relic monitors Ruby, Java,
+# .NET, PHP, Python, Node, and Go applications with deep visibility and low
+# overhead.  For more information, visit www.newrelic.com.
+#
+# Generated January 12, 2022
+#
+# This configuration file is custom generated for NewRelic Administration
+#
+
+common: &default_settings
+  # Required license key associated with your New Relic account.
+  license_key: <%= ENV["NEWRELIC_KEY"] %>
+  # FEDRAMP-specific New Relic host
+  # https://docs.newrelic.com/docs/security/security-privacy/compliance/fedramp-compliant-endpoints/
+  host: 'gov-collector.newrelic.com'
+
+  # Your application name. Renaming here affects where data displays in New
+  # Relic.  For more details, see https://docs.newrelic.com/docs/apm/new-relic-apm/maintenance/renaming-applications
+  app_name: Iv Cbv Payroll
+
+  # Forward these custom attributes to NewRelic for better filtering of transactions/events.
+  # These enable distributed tracing across the entire user journey (web requests + background jobs).
+  attributes:
+    include:
+      - flow_id
+      - flow_type
+      - device_id
+      - user_id
+      - session_id
+      - client_agency_id
+
+  monitor_mode: true
+
+  distributed_tracing:
+    enabled: true
+
+  browser_monitoring:
+    # include js code via partial to comply with CSP settings
+    auto_instrument: true
+
+  # This line disables agent regardless of other settings.
+  # To enable the New Relic agent:
+  # 1) add the New Relic license keys to the appropriate encrypted credentials file(s)
+  # 2) Optionally, update app_name entries in this file with the application name you want to show in New Relic
+  # 3) Comment out the line below
+  agent_enabled: true
+
+  # Log forwarding must be enabled for the SemanticLogger :new_relic_logs appender
+  # to work (it uses NewRelic::Agent.agent.log_event_aggregator internally).
+  # Note: NewRelic's auto-forwarding is incompatible with SemanticLogger, but the
+  # SemanticLogger appender bypasses auto-forwarding by calling the aggregator directly.
+  application_logging:
+    enabled: true
+    forwarding:
+      enabled: true
+
+  # Logging level for log/newrelic_agent.log
+  log_level: info
+
+  # Instrument CBV custom rake tasks:
+  rake:
+    tasks: [ "data_deletion:.+", "weekly_reports:.+" ]
+
+  error_collector:
+    # Ignore errors that aren't likely related to user-facing issues (e.g.
+    # triggered by automated scanners)
+    ignore_classes:
+      - "ActionController::BadRequest"
+      - "ActionController::RoutingError"
+      - "ActionController::UnknownHttpMethod"
+      - "ActionDispatch::Http::MimeNegotiation::InvalidType"
+
+
+# Environment-specific settings are in this section.
+# RAILS_ENV or RACK_ENV (as appropriate) is used to determine the environment.
+# If your application has other named environments, configure them here.
+development:
+  <<: *default_settings
+  app_name: Iv Cbv Payroll (Development)
+
+test:
+  <<: *default_settings
+  # It doesn't make sense to report to New Relic from automated test runs.
+  monitor_mode: false
+
+ci:
+  <<: *default_settings
+  # It doesn't make sense to report to New Relic from automated test runs.
+  monitor_mode: false
+
+dev:
+  <<: *default_settings
+  app_name: Iv Cbv Payroll (Dev)
+
+demo:
+  <<: *default_settings
+  app_name: Iv Cbv Payroll (Demo)
+
+production:
+  <<: *default_settings
+  app_name: Iv Cbv Payroll (Production)

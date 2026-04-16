@@ -1,0 +1,76 @@
+<div class="usa-overlay"></div>
+<header class="usa-header usa-header--basic" aria-label="<%= t("shared.header.aria_label") %>" data-controller="language">
+  <% if current_agency.present? %>
+    <div class="cbv-header__preheader">
+      <div class="cbv-header__preheader__text">
+        <%= agency_translation("shared.header.preheader") %>
+      </div>
+    </div>
+  <% end %>
+  <div class="usa-nav-container">
+    <div class="usa-navbar">
+      <div class="usa-logo">
+        <em class="usa-logo__text cbv-header">
+          <% if activity_flow? %>
+            <div class="cbv-header__title-group">
+              <div class="cbv-header__pilot-name">
+                <%= t("shared.pilot_name_hr1_full") %>
+              </div>
+              <div class="cbv-header__subtitle">
+                <%= agency_translation("shared.agency_full_name") %>
+              </div>
+            </div>
+          <% else %>
+            <div class="cbv-header__pilot-name">
+              <%= t("shared.pilot_name") %>
+              <% if current_agency %>
+                <span class="cbv-header__separator">|</span>
+              <% end %>
+            </div>
+            <% has_logo = current_agency && current_agency.logo_path.present? %>
+            <% has_square_logo = current_agency && current_agency.logo_square_path.present? %>
+            <% logo_path = has_square_logo ? current_agency.logo_square_path : (has_logo ? current_agency.logo_path : nil) %>
+            <% show_agency_text = has_square_logo || !has_logo %>
+            <% logo_alt_text = agency_translation("shared.header.logo_alt_text") %>
+            <div class="<%= has_logo ?
+                              "display-none tablet:display-flex" : "display-flex" %> flex-align-center">
+              <% if logo_path %>
+                <%= image_tag logo_path, class: "cbv-header__agency-logo cbv-header__agency-logo--#{current_agency.id}", alt: logo_alt_text %>
+              <% end %>
+              <% if show_agency_text %>
+                <%= agency_translation("shared.header.cbv_flow_title") %>
+              <% end %>
+            </div>
+            <% if has_logo %>
+              <%= image_tag current_agency.logo_path, class: "cbv-header__agency-logo cbv-header__agency-logo--#{current_agency.id} tablet:display-none", alt: logo_alt_text %>
+            <% end %>
+          <% end %>
+        </em>
+      </div>
+      <% if show_menu? %>
+        <button class="usa-menu-btn"><%= t("shared.header.menu") %></button>
+      <% end %>
+    </div>
+    <nav aria-label="<%= t("shared.header.primary") %>" class="usa-nav cbv-header__nav">
+      <button class="usa-nav__close">
+        <%= image_tag "@uswds/uswds/dist/img/usa-icons/close.svg", role: "img", alt: t("shared.header.close") %>
+      </button>
+      <ul class="usa-nav__primary usa-accordion">
+        <% if user_signed_in? %>
+          <li class="usa-nav__primary-item">
+            <%= button_to t("shared.header.log_out"), destroy_user_session_url(client_agency_id: current_user.client_agency_id), method: :delete, class: "usa-nav__link" %>
+          </li>
+        <% end %>
+        <li class="usa-nav__primary-item">
+          <%= render partial: "help/help_link", locals: { class_name: "usa-nav__link", text: t("shared.header.help"), source: "nav" } %>
+        </li>
+        <% I18n.available_locales.each do |locale| %>
+          <% next if locale == I18n.locale %>
+          <li class="usa-nav__primary-item">
+            <%= switch_locale_link(locale) %>
+          </li>
+        <% end %>
+      </ul>
+    </nav>
+  </div>
+</header>

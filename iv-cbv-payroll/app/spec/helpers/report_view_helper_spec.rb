@@ -1,0 +1,348 @@
+require 'rails_helper'
+
+RSpec.describe ReportViewHelper, type: :helper do
+  describe '#format_hours' do
+    it "rounds to the nearest tenth" do
+      expect(helper.format_hours(57.3611)).to eq(57.4)
+      expect(helper.format_hours(57.3411)).to eq(57.3)
+    end
+
+    it "ignores non numbers" do
+      expect(helper.format_hours("hours")).to eq("hours")
+      expect(helper.format_hours("30h")).to eq("30h")
+    end
+  end
+
+  describe '#federal_cents_per_mile' do
+    it "test different years" do
+      expect(helper.federal_cents_per_mile(2024)).to eq(67)
+      expect(helper.federal_cents_per_mile(2025)).to eq(70)
+      expect(helper.federal_cents_per_mile(2026)).to eq(72.5)
+      expect(helper.federal_cents_per_mile(2027)).to eq(72.5)
+    end
+  end
+
+  describe '#format_money_with_subcents' do
+    it "formats full cent values with 2 decimal precision" do
+      expect(helper.format_money_with_subcents(70)).to eq("$0.70")
+    end
+
+    it "formats half-cent values with 3 decimal precision" do
+      expect(helper.format_money_with_subcents(72.5)).to eq("$0.725")
+    end
+  end
+
+
+  describe '#translate_aggregator_value' do
+    around do |ex|
+      I18n.with_locale(locale, &ex)
+    end
+
+    context 'when locale is :es' do
+      let(:locale) { :es }
+
+      it 'returns the translated value if translation exists' do
+        I18n.backend.store_translations(:es, {
+          aggregator_strings: {
+            namespace: {
+              existing_value: 'Translated Value'
+            }
+          }
+        })
+
+        result = helper.translate_aggregator_value('namespace', 'existing_value')
+        expect(result).to eq('Translated Value')
+      end
+
+      it 'raises an error in development or test if translation is missing' do
+        # Use a key that doesn't exist
+        expect {
+          helper.translate_aggregator_value('namespace', 'missing_value')
+        }.to raise_error('Missing aggregator translation for namespace.missing_value')
+      end
+
+      it 'logs a warning and returns the original value in production if translation is missing' do
+        # Simulate production environment
+        allow(Rails.env).to receive_messages(development?: false, test?: false)
+
+        # Expect a warning to be logged
+        expect(Rails.logger).to receive(:warn).with('Unknown aggregator value for namespace: missing_value')
+
+        result = helper.translate_aggregator_value('namespace', 'missing_value')
+        expect(result).to eq('missing_value')
+      end
+    end
+
+    context 'when locale is not :es' do
+      let(:locale) { :en }
+
+      before do
+        I18n.backend.store_translations(:en, {
+          aggregator_strings: {
+            namespace: {
+              some_value: 'Translated Value'
+            }
+          }
+        })
+      end
+
+      it 'returns the English value' do
+        result = helper.translate_aggregator_value('namespace', 'some_value')
+        expect(result).to eq('Translated Value')
+      end
+
+      context 'when the value is nil' do
+        it 'returns nil' do
+          result = helper.translate_aggregator_value('namespace', nil)
+          expect(result).to be_nil
+        end
+      end
+
+      context 'when there is no English value given' do
+        it 'returns the original value regardless of translations' do
+          result = helper.translate_aggregator_value('namespace', 'any_value')
+          expect(result).to eq('any_value')
+        end
+      end
+    end
+  end
+
+  describe '#format_parsed_date' do
+    around do |ex|
+      I18n.with_locale(locale, &ex)
+    end
+
+    context 'when locale is :en' do
+      let(:locale) { :en }
+
+      it 'formats January 1st correctly' do
+        date = Date.new(2023, 1, 1)
+        expect(helper.format_parsed_date(date)).to eq('January 1, 2023')
+      end
+
+      it 'formats February 28th correctly' do
+        date = Date.new(2023, 2, 28)
+        expect(helper.format_parsed_date(date)).to eq('February 28, 2023')
+      end
+
+      it 'formats December 31st correctly' do
+        date = Date.new(2023, 12, 31)
+        expect(helper.format_parsed_date(date)).to eq('December 31, 2023')
+      end
+    end
+
+    context 'when locale is :es' do
+      let(:locale) { :es }
+
+      it 'formats January 1st correctly' do
+        date = Date.new(2023, 1, 1)
+        expect(helper.format_parsed_date(date)).to eq('1 de enero de 2023')
+      end
+
+      it 'formats February 28th correctly' do
+        date = Date.new(2023, 2, 28)
+        expect(helper.format_parsed_date(date)).to eq('28 de febrero de 2023')
+      end
+
+      it 'formats December 31st correctly' do
+        date = Date.new(2023, 12, 31)
+        expect(helper.format_parsed_date(date)).to eq('31 de diciembre de 2023')
+      end
+    end
+  end
+
+  describe '#format_date' do
+    around do |ex|
+      I18n.with_locale(locale, &ex)
+    end
+
+    context 'when locale is :en' do
+      let(:locale) { :en }
+
+      it 'formats January 1st correctly' do
+        date_string = "2023-01-01"
+        expect(helper.format_date(date_string)).to eq('January 1, 2023')
+
+        date_string = "2023-1-1"
+        expect(helper.format_date(date_string)).to eq('January 1, 2023')
+
+        date = Date.new(2023, 1, 1)
+        expect(helper.format_date(date)).to eq('January 1, 2023')
+      end
+
+      it 'formats February 28th correctly' do
+        date_string = "2023-02-28"
+        expect(helper.format_date(date_string)).to eq('February 28, 2023')
+
+        date = Date.new(2023, 2, 28)
+        expect(helper.format_date(date)).to eq('February 28, 2023')
+      end
+
+      it 'formats December 31st correctly' do
+        date_string = "2023-12-31"
+        expect(helper.format_date(date_string)).to eq('December 31, 2023')
+
+        date = Date.new(2023, 12, 31)
+        expect(helper.format_date(date)).to eq('December 31, 2023')
+      end
+
+      it 'formats a date with "%b" format as August correctly' do
+        date = Date.new(2023, 8, 7) # A Tuesday
+        format = "%b"
+
+        expect(helper.format_date(date, format: format)).to match(/Aug/)
+      end
+
+      it 'formats a date with "%A" format as Wednesday correctly' do
+        date = Date.new(2023, 11, 8) # A Wednesday
+        format = "%A"
+
+        expect(helper.format_date(date, format: format)).to match(/Wednesday/)
+      end
+    end
+
+    context 'when locale is :es' do
+      let(:locale) { :es }
+
+      it 'formats January 1st correctly' do
+        date_string = "2023-1-1"
+        expect(helper.format_date(date_string)).to eq('1 de enero de 2023')
+
+        date = Date.new(2023, 1, 1)
+        expect(helper.format_date(date)).to eq('1 de enero de 2023')
+      end
+
+      it 'formats February 28th correctly' do
+        date_string = "2023-02-28"
+        expect(helper.format_date(date_string)).to eq('28 de febrero de 2023')
+
+        date = Date.new(2023, 2, 28)
+        expect(helper.format_date(date)).to eq('28 de febrero de 2023')
+      end
+
+      it 'formats December 31st correctly' do
+        date_string = "2023-12-31"
+        expect(helper.format_date(date_string)).to eq('31 de diciembre de 2023')
+
+        date = Date.new(2023, 12, 31)
+        expect(helper.format_date(date)).to eq('31 de diciembre de 2023')
+      end
+
+      it 'formats a date with "%b" format as August correctly' do
+        date = Date.new(2023, 8, 7) # A Tuesday
+        format = "%b"
+
+        expect(helper.format_date(date, format: format)).to match(/ago/)
+      end
+
+      it 'formats a date with "%A" format as Wednesday correctly' do
+        date = Date.new(2023, 11, 8) # A Wednesday
+        format = { format: "%A" }
+
+        expect(helper.format_date(date, format: format)).to match(/miércoles/)
+      end
+    end
+  end
+
+  describe "#report_data_range" do
+    subject { helper.report_data_range(report) }
+
+    let(:report) { build(:argyle_report) }
+    let(:fetched_days) { 90 }
+
+    before do
+      allow(report)
+        .to receive(:fetched_days)
+        .and_return(fetched_days)
+    end
+
+
+    it "renders when 90 days of data were fetched" do
+      expect(subject).to eq(I18n.t("shared.report_data_range.ninety_days"))
+    end
+
+    context "when 182 days of data were fetched" do
+      let(:fetched_days) { 182 }
+
+      it "returns the string for six months" do
+        expect(subject).to eq(I18n.t("shared.report_data_range.six_months"))
+      end
+    end
+
+    context "when account_id is provided" do
+      let(:account_id) { "test-account-123" }
+
+      before do
+        allow(report)
+          .to receive(:fetched_days_for_account)
+          .with(account_id)
+          .and_return(182)
+      end
+
+      it "uses account-specific days" do
+        result = helper.report_data_range(report, account_id)
+        expect(result).to eq(I18n.t("shared.report_data_range.six_months"))
+      end
+    end
+
+    context "when an invalid number of days were fetched" do
+      let(:fetched_days) { 0 }
+
+      it "raises an error" do
+        expect { subject }.to raise_error(/Missing i18n key/)
+      end
+    end
+  end
+
+  describe "#format_boolean" do
+    it 'returns "Yes" for true boolean' do
+      expect(helper.format_boolean(true)).to eq('Yes')
+    end
+
+    it 'returns "No" for false boolean' do
+      expect(helper.format_boolean(false)).to eq('No')
+    end
+
+    it 'returns "Yes" for "true" string' do
+      expect(helper.format_boolean("true")).to eq('Yes')
+    end
+
+    it 'returns "No" for "false" string' do
+      expect(helper.format_boolean("false")).to eq('No')
+    end
+
+    it 'returns "N/A" for nil values' do
+      expect(helper.format_boolean(nil)).to eq('N/A')
+    end
+
+    it 'raises an error for invalid values' do
+      expect { helper.format_boolean(0) }.to raise_error(ArgumentError, /format_boolean only accepts/)
+      expect { helper.format_boolean('') }.to raise_error(ArgumentError, /format_boolean only accepts/)
+      expect { helper.format_boolean('any string') }.to raise_error(ArgumentError, /format_boolean only accepts/)
+      expect { helper.format_boolean(1) }.to raise_error(ArgumentError, /format_boolean only accepts/)
+      expect { helper.format_boolean([]) }.to raise_error(ArgumentError, /format_boolean only accepts/)
+    end
+  end
+
+  describe "#format_string" do
+    subject { helper.format_string(string) }
+
+    context "when the field is nil" do
+      let(:string) { nil }
+
+      it { is_expected.to eq(I18n.t("shared.not_applicable")) }
+    end
+
+    context "when the field is empty string" do
+      let(:string) { "" }
+
+      it { is_expected.to eq(I18n.t("shared.not_applicable")) }
+    end
+
+    context "when the field is anything else" do
+      let(:string) { "foo bar" }
+
+      it { is_expected.to eq(string) }
+    end
+  end
+end

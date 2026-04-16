@@ -1,0 +1,40 @@
+inherit_from: .rubocop_todo.yml
+
+# The behavior of RuboCop can be controlled via the .rubocop.yml
+# configuration file. It makes it possible to enable/disable
+# certain cops (checks) and to alter their behavior if they accept
+# any parameters. The file can be placed either in your home
+# directory or in some project directory.
+#
+# RuboCop will start looking for the configuration file in the directory
+# where the inspected file is and continue its way up to the root directory.
+#
+# See https://docs.rubocop.org/rubocop/configuration
+require:
+  - rubocop-rspec
+inherit_gem:
+  rubocop-rails-omakase: rubocop.yml
+AllCops:
+  NewCops: enable
+RSpec/StubbedMock:
+  # Disabled to allow for setting expectations while configuring a mock. This
+  # increases compactness of specs. See
+  # https://github.com/rubocop/rubocop-rspec/issues/1271
+  Enabled: false
+
+
+# Re-enable some Cops not included in the rubocop-rails-omakase configuration:
+# https://github.com/rails/rubocop-rails-omakase/blob/main/rubocop.yml
+Layout/EmptyLineBetweenDefs:
+  Enabled: true
+Layout/EndAlignment:
+  EnforcedStyleAlignWith: keyword
+Layout/IndentationConsistency:
+  Enabled: true
+  EnforcedStyle: normal
+Layout/IndentationWidth:
+  Enabled: true
+Layout/ParameterAlignment:
+  Enabled: true
+Naming/VariableName:
+  Enabled: true

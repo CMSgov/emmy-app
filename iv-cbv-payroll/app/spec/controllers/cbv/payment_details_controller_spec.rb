@@ -1,0 +1,462 @@
+require "rails_helper"
+
+RSpec.describe Cbv::PaymentDetailsController do
+  include PinwheelApiHelper
+  include ArgyleApiHelper
+
+  describe "#show" do
+    render_views
+
+    let(:current_time) { Date.parse('2024-06-18') }
+    let(:cbv_applicant) { create(:cbv_applicant, created_at: current_time, case_number: "ABC1234") }
+    let(:account_id) { "03e29160-f7e7-4a28-b2d8-813640e030d3" }
+    let(:comment) { "This is a test comment" }
+    let(:supported_jobs) { %w[income paystubs employment] }
+    let(:errored_jobs) { [] }
+    let(:cbv_flow) do
+      create(:cbv_flow,
+        :invited,
+        :with_pinwheel_account,
+        with_errored_jobs: errored_jobs,
+        created_at: current_time,
+        supported_jobs: supported_jobs,
+        cbv_applicant: cbv_applicant
+      )
+    end
+    let!(:payroll_account) do
+      create(
+        :payroll_account,
+        :pinwheel_fully_synced,
+        with_errored_jobs: errored_jobs,
+        flow: flow,
+        aggregator_account_id: account_id,
+        supported_jobs: supported_jobs,
+      )
+    end
+    let!(:paystubs_response) { pinwheel_stub_request_end_user_paystubs_response }
+    let(:flow) { cbv_flow }
+    let(:flow_type) { :cbv }
+
+    before do
+      session[:flow_id] = flow.id
+      session[:flow_type] = flow_type
+
+      pinwheel_stub_request_identity_response
+      pinwheel_stub_request_end_user_accounts_response
+      pinwheel_stub_request_end_user_account_response
+      pinwheel_stub_request_platform_response
+      pinwheel_stub_request_income_metadata_response if supported_jobs.include?("income")
+      pinwheel_stub_request_employment_info_response
+      pinwheel_stub_request_shifts_response if supported_jobs.include?("shifts")
+    end
+
+    context "when pinwheel values are present" do
+      it "renders properly" do
+        get :show, params: { user: { account_id: account_id } }
+        expect(response).to be_successful
+      end
+
+      it "tracks events" do
+        allow(EventTrackingJob).to receive(:perform_later).with(TrackEvent::CbvPageView, anything, anything)
+        expect(EventTrackingJob).to receive(:perform_later).with(TrackEvent::ApplicantViewedPaymentDetails, anything, hash_including(
+            cbv_flow_id: cbv_flow.id,
+            invitation_id: cbv_flow.cbv_flow_invitation_id,
+            aggregator_account_id: payroll_account.id,
+            payments_length: 1,
+            has_employment_data: true,
+            has_paystubs_data: true,
+            has_income_data: true
+          ))
+
+        get :show, params: { user: { account_id: account_id } }
+      end
+
+      it "properly displays pay frequency and compensation amount" do
+        get :show, params: { user: { account_id: account_id } }
+        expect(response).to be_successful
+
+        doc = Nokogiri::HTML(response.body)
+
+        expect(doc.xpath("//tr[contains(., 'Pay frequency')]").text).to include('Bi-weekly')
+        expect(doc.xpath("//tr[contains(., 'Compensation amount')]").text).to include('$10.00 Hourly')
+      end
+
+      context "when account comment exists" do
+        before do
+          payroll_account.update!(additional_information: comment)
+        end
+
+        it "includes the account comment in the response" do
+          get :show, params: { user: { account_id: account_id } }
+          expect(response.body).to include(comment)
+        end
+      end
+
+      context "when multiple comments exist for different accounts" do
+        let(:account_id_2) { SecureRandom.uuid }
+        let(:comment_2) { "This is another test comment" }
+        let!(:payroll_account_2) do
+          create(
+            :payroll_account,
+            :pinwheel_fully_synced,
+            with_errored_jobs: errored_jobs,
+            flow: flow,
+            aggregator_account_id: account_id_2,
+            supported_jobs: supported_jobs,
+          )
+        end
+
+        before do
+          payroll_account.update!(additional_information: comment)
+          payroll_account_2.update!(additional_information: comment_2)
+        end
+
+        it "includes the account comments in the response" do
+          get :show, params: { user: { account_id: account_id } }
+          expect(response.body).to include(comment)
+          expect(response.body).not_to include(comment_2)
+        end
+      end
+
+      context "when account comment does not exist" do
+        it "does not include an account comment in the response" do
+          get :show, params: { user: { account_id: account_id } }
+          expect(response.body).not_to include(comment)
+        end
+      end
+    end
+
+    context "when report paystubs aren't present" do
+      it "tracks payments_length as 0" do
+        WebMock.remove_request_stub(paystubs_response)
+        pinwheel_stub_request_end_user_no_paystubs_response
+        allow(EventTrackingJob).to receive(:perform_later).with(TrackEvent::CbvPageView, anything, anything)
+        expect(EventTrackingJob).to receive(:perform_later).with(TrackEvent::ApplicantViewedPaymentDetails, anything, hash_including(
+          payments_length: 0,
+        ))
+
+        get :show, params: { user: { account_id: account_id } }
+      end
+    end
+
+    context "when the aggregator report is invalid" do
+      let(:invalid_report) { instance_double(Aggregators::AggregatorReports::ArgyleReport, valid?: false) }
+
+      before do
+        allow(controller).to receive(:set_aggregator_report_for_account) do |_pa|
+          controller.instance_variable_set(:@aggregator_report, invalid_report)
+        end
+      end
+
+      it "redirects without tracking ApplicantViewedPaymentDetails event" do
+        allow(EventTrackingJob).to receive(:perform_later).with(TrackEvent::CbvPageView, anything, anything)
+        expect(EventTrackingJob).not_to receive(:perform_later).with(TrackEvent::ApplicantViewedPaymentDetails, anything, anything)
+
+        get :show, params: { user: { account_id: account_id } }
+
+        expect(response).to redirect_to(cbv_flow_synchronization_failures_path)
+      end
+    end
+
+    context "for an account that doesn't support income data" do
+      let(:supported_jobs) { %w[paystubs employment] }
+
+      it "renders properly without the income data" do
+        get :show, params: { user: { account_id: account_id } }
+        expect(response).to be_successful
+        expect(response.body).not_to include("Pay period frequency")
+      end
+    end
+
+    context "for an account that supports income data but Pinwheel was unable to retrieve it" do
+      let(:supported_jobs) { %w[paystubs employment income] }
+      let(:errored_jobs) { [ "income" ] }
+
+      it "renders properly without the income data" do
+        get :show, params: { user: { account_id: account_id } }
+        expect(response).to be_successful
+        expect(response.body).not_to include("Pay period frequency")
+      end
+    end
+
+
+    context "for an account that supports employment data but Pinwheel was unable to retrieve" do
+      let(:supported_jobs) { %w[paystubs employment income] }
+      let(:errored_jobs) { [ "employment" ] }
+
+      it "renders properly without the employment data" do
+        get :show, params: { user: { account_id: account_id } }
+        expect(response).to be_successful
+        expect(response.body).to include("Unknown")
+      end
+    end
+
+    context "for an account that supports paystubs data but Pinwheel was unable to retrieve" do
+      let(:supported_jobs) { %w[paystubs employment income] }
+      let(:errored_jobs) { [ "paystubs" ] }
+
+      before do
+        pinwheel_stub_request_end_user_no_paystubs_response
+      end
+
+      it "renders properly without the paystubs data" do
+        get :show, params: { user: { account_id: account_id } }
+        expect(response).to be_successful
+        expect(response.body).to include("find any payments from this employer in the past 90 days.")
+      end
+    end
+
+    context "when employment status is blank" do
+      before do
+        pinwheel_request_employment_info_response_null_employment_status_bug
+      end
+
+      it "renders properly" do
+        get :show, params: { user: { account_id: account_id } }
+        expect(response).to be_successful
+      end
+    end
+
+    context "when the 'hours' value is nil" do
+      before do
+        pinwheel_stub_request_end_user_no_hours_response
+      end
+
+      context "but the user is a Gig worker" do
+        before do
+          pinwheel_stub_request_employment_info_gig_worker_response
+        end
+
+        it "renders properly" do
+          get :show, params: { user: { account_id: account_id } }
+          expect(response).to be_successful
+        end
+      end
+    end
+
+    context "when deductions include a zero dollar amount" do
+      it "does not show that deduction" do
+        get :show, params: { user: { account_id: account_id } }
+        expect(response.body).to include("tax")
+        expect(response.body).not_to include("Empty deduction")
+      end
+    end
+
+    context "when deductions include a nil amount" do
+      it "converts nil to zero and does not show that deduction" do
+        get :show, params: { user: { account_id: account_id } }
+        expect(response).to be_successful
+        expect(response.body).to include("tax")
+        expect(response.body).not_to include("Nil Amount Deduction")
+      end
+    end
+
+    context "when deductions include a negative amount" do
+      it "displays the deduction" do
+        get :show, params: { user: { account_id: account_id } }
+        expect(response).to be_successful
+        expect(response.body).to include("Benefits")
+      end
+    end
+
+    context "when a user attempts to access pinwheel account information not in the current session" do
+      it "redirects to the entry page when the resolved pinwheel_account is nil" do
+        get :show, params: { user: { account_id: "1234" } }
+        expect(response).to redirect_to(cbv_flow_entry_url)
+        expect(flash[:slim_alert]).to be_present
+        expect(flash[:slim_alert][:message]).to eq(I18n.t("cbv.error_no_access"))
+      end
+
+      it "redirects to the entry page when the resolved pinwheel_account is present, but does not match the current session" do
+        existing_payroll_account = create(:payroll_account)
+        get :show, params: { user: { account_id: existing_payroll_account.aggregator_account_id } }
+        expect(response).to redirect_to(cbv_flow_entry_url)
+        expect(flash[:slim_alert]).to be_present
+        expect(flash[:slim_alert][:message]).to eq(I18n.t("cbv.error_no_access"))
+      end
+    end
+
+    context "when using argyle" do
+      context "for Bob (a gig worker)" do
+        subject { response.body }
+
+        let(:account_id) { ArgyleApiHelper::BOB_ACCOUNT_ID }
+        let(:cbv_applicant) { create(:cbv_applicant, created_at: Date.parse("2025-03-15"), snap_application_date: Date.parse("2025-03-15"), case_number: "ABC1234") }
+        let(:cbv_flow) do
+          create(:cbv_flow,
+                 :invited,
+                 :with_argyle_account,
+                 with_errored_jobs: errored_jobs,
+                 created_at: current_time,
+                 supported_jobs: supported_jobs,
+                 cbv_applicant: cbv_applicant
+          )
+        end
+        let!(:payroll_account) do
+          create(
+            :payroll_account,
+            :argyle_fully_synced,
+            with_errored_jobs: errored_jobs,
+            flow: cbv_flow,
+            aggregator_account_id: account_id,
+            supported_jobs: supported_jobs,
+            )
+        end
+
+        before do
+          session[:flow_id] = cbv_flow.id
+          argyle_stub_request_identities_response("bob")
+          argyle_stub_request_paystubs_response("bob")
+          argyle_stub_request_gigs_response("bob")
+          argyle_stub_request_account_response("bob")
+          get :show, params: { user: { account_id: account_id } }
+        end
+
+
+        it "renders properly" do
+          expect(response).to be_successful
+        end
+
+        context "includes employment details data for gig" do
+          it { is_expected.to include("Employment information") }
+          it { is_expected.to include("Employer phone") }
+          it { is_expected.to include("Employment status") }
+          it { is_expected.to include("Employment start date") }
+          it { is_expected.to include("Employment end date") }
+          it { is_expected.not_to include("Pay frequency") }
+          it { is_expected.not_to include("Compensation amount") }
+        end
+
+        context "does not include w2 summary table" do
+          it { is_expected.not_to include("Pay date") }
+          it { is_expected.not_to include("Gross pay YTD") }
+          it { is_expected.not_to include("Pay period") }
+          it { is_expected.not_to include("Payments after taxes and deductions(net)") }
+          it { is_expected.not_to include("Deduction") }
+          it { is_expected.not_to include("Base Pay") }
+        end
+
+        context "includes monthly gig summary table" do
+          it { is_expected.to include("Monthly summary") }
+          it { is_expected.to include("Accrued gross earnings") }
+          it { is_expected.to include("Total hours worked") }
+          it { is_expected.not_to include("Partial month") }
+        end
+      end
+
+      context "for Sarah (a w2 worker)" do
+        subject { response.body }
+
+        let(:account_id) { "01956d5f-cb8d-af2f-9232-38bce8531f58" }
+        let(:cbv_flow) do
+          create(:cbv_flow,
+                 :invited,
+                 :with_argyle_account,
+                 with_errored_jobs: errored_jobs,
+                 created_at: current_time,
+                 supported_jobs: supported_jobs,
+                 cbv_applicant: cbv_applicant
+          )
+        end
+        let!(:payroll_account) do
+          create(
+            :payroll_account,
+            :argyle_fully_synced,
+            with_errored_jobs: errored_jobs,
+            flow: cbv_flow,
+            aggregator_account_id: account_id,
+            supported_jobs: supported_jobs,
+            )
+        end
+
+        before do
+          session[:flow_id] = cbv_flow.id
+          argyle_stub_request_identities_response("sarah")
+          argyle_stub_request_paystubs_response("sarah")
+          argyle_stub_request_gigs_response("sarah")
+          argyle_stub_request_account_response("sarah")
+          get :show, params: { user: { account_id: account_id } }
+        end
+
+
+        it "renders properly" do
+          expect(response).to be_successful
+        end
+
+        context "includes employment details data for gig" do
+          it { is_expected.to include("Employment information") }
+          it { is_expected.to include("Employer phone") }
+          it { is_expected.to include("Employment status") }
+          it { is_expected.to include("Employment start date") }
+          it { is_expected.to include("Employment end date") }
+          it { is_expected.to include("Pay frequency") }
+          it { is_expected.to include("Compensation amount") }
+        end
+
+        context "includes w2 summary table" do
+          it { is_expected.to include("Pay date") }
+          it { is_expected.to include("Gross pay YTD") }
+          it { is_expected.to include("Pay period") }
+          it { is_expected.to include("Payment after taxes and deductions (net)") }
+          it { is_expected.to include("Deduction") }
+        end
+
+        context "includes monthly w2 summary table" do
+          it { is_expected.to include("Monthly summary") }
+          it { is_expected.to include("Gross income") }
+          it { is_expected.to include("Total hours worked") }
+        end
+
+        it "properly displays pay frequency and compensation amount" do
+          doc = Nokogiri::HTML(response.body)
+
+          expect(doc.xpath("//tr[contains(., 'Pay frequency')]").text).to include('Bi-weekly')
+          expect(doc.xpath("//tr[contains(., 'Compensation amount')]").text).to include('$23.16 Hourly')
+        end
+
+        it "displays deductions with negative amounts" do
+          expect(response.body).to include("Insurance refund")
+        end
+      end
+    end
+  end
+
+  describe "#update" do
+    let!(:cbv_flow) { create(:cbv_flow, :invited) }
+    let(:account_id) { SecureRandom.uuid }
+    let(:old_comment) { "Old comment" }
+    let(:comment) { "This is a test comment" }
+    let(:flow) { cbv_flow }
+    let(:flow_type) { :cbv }
+
+    before do
+      session[:flow_id] = flow.id
+      session[:flow_type] = flow_type
+      create(:payroll_account, flow: flow, aggregator_account_id: account_id, additional_information: old_comment)
+    end
+
+    it "updates the account comment through invoking the controller" do
+      payroll_account = flow.payroll_accounts.find_by(aggregator_account_id: account_id)
+
+      expect do
+        patch :update, params: { user: { account_id: account_id },
+                                 payroll_account: { additional_information: comment } }
+      end.to change { payroll_account.reload.additional_information }
+        .from(old_comment)
+        .to(comment)
+    end
+
+    it "tracks events" do
+      allow(EventTrackingJob).to receive(:perform_later).with("CbvPageView", anything, anything)
+
+      expect(EventTrackingJob).to receive(:perform_later).with("ApplicantSavedPaymentDetails", anything, hash_including(
+          cbv_flow_id: cbv_flow.id,
+          invitation_id: cbv_flow.cbv_flow_invitation_id,
+          additional_information_length: comment.length
+        ))
+
+      patch :update, params: { user: { account_id: account_id },
+                               payroll_account: { additional_information: comment } }
+    end
+  end
+end

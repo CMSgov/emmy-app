@@ -1,0 +1,30 @@
+# List of vulnerabilities to ignore for the anchore scan
+# https://github.com/anchore/grype#specifying-matches-to-ignore
+# More info can be found in the docs/infra/vulnerability-management.md file
+
+# Please add safelists in the following format to make it easier when checking
+# Package/module name: URL to vulnerability for checking updates
+#  Versions:     URL to the version history
+#  Dependencies: Name of any other packages or modules that are dependent on this version
+#                 Link to the dependencies for ease of checking for updates
+#  Issue:         Why there is a finding and why this is here or not been removed
+#  Last checked:  Date last checked in scans
+# - vulnerability: The-CVE-or-vuln-id # Remove comment at start of line
+
+ignore:
+  # These settings ignore any findings that fall into these categories
+  - fix-state: not-fixed
+  - fix-state: wont-fix
+  - fix-state: unknown
+  - vulnerability: GHSA-mq26-g339-26xf
+  - vulnerability: GHSA-c2qf-rxjj-qqgw
+  - vulnerability: GHSA-cx63-2mw6-8hw5
+  - vulnerability: GHSA-qwmp-2cf2-g9g6
+  - vulnerability: CVE-2024-4603
+  # TODO: Remove once we upgrade Ruby and these gem versions are no longer included by default.
+  - vulnerability: GHSA-gh9q-2xrm-x6qv # Ruby "cgi" version 0.4.1
+  - vulnerability: GHSA-mhwm-jh88-3gjf # Ruby "cgi" version 0.4.1
+  - vulnerability: GHSA-22h5-pq3x-2gf2 # Ruby "uri" version 0.13.1
+
+exclude:
+  - '/rails/node_modules/@esbuild/*/bin/esbuild' # Ignore this go binary since it is only used in the asset build process

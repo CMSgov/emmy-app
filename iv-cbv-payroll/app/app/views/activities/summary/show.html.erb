@@ -1,0 +1,108 @@
+<% content_for :title, t("activities.summary.title", benefit: agency_translation("shared.benefit")) %>
+
+<% content_for :activity_flow_header do %>
+  <div class="back-nav">
+    <%= link_to activities_flow_root_path, class: "back-nav__link" do %>
+      <svg class="usa-icon" aria-hidden="true" focusable="false" role="img">
+        <use xlink:href="<%= asset_path("@uswds/uswds/dist/img/sprite.svg#navigate_before") %>"></use>
+      </svg>
+      <%= t("activities.activity_header_component.back") %>
+    <% end %>
+  </div>
+<% end %>
+
+<h1>
+  <%= t("activities.summary.title", benefit: agency_translation("shared.benefit")) %>
+</h1>
+<p>
+  <% start_date = I18n.l(@flow.reporting_window_range.begin, format: :month_year) %>
+  <% end_date = I18n.l(@flow.reporting_window_range.end, format: :month_year) %>
+  <% if start_date == end_date %>
+    <%= t("activities.summary.description_single_month",
+          month: start_date,
+          agency_name: agency_translation("shared.agency_full_name")) %>
+  <% else %>
+    <%= t("activities.summary.description",
+          start_date: start_date,
+          end_date: end_date,
+          agency_name: agency_translation("shared.agency_full_name")) %>
+  <% end %>
+</p>
+
+<%= render(ActivityFlowProgressIndicator.from_calculator(progress_calculator)) %>
+
+<hr class="border-gray-30 border-top-0 margin-bottom-4">
+
+<div class="margin-top-4">
+<% @all_activities.each_with_index do |activity_data, index| %>
+  <section>
+    <h2>
+      <%# i18n-tasks-use t("activities.education.title_singular") %>
+      <%# i18n-tasks-use t("activities.employment.title_singular") %>
+      <%# i18n-tasks-use t("activities.community_service.title_singular") %>
+      <%# i18n-tasks-use t("activities.work_programs.title_singular") %>
+      <% activity_type_label = t("activities.#{activity_data[:type]}.title_singular") %>
+      <% if @all_activities.size > 1 %>
+        <%= t("activities.summary.activity_header_numbered",
+              number: index + 1,
+              type: activity_type_label) %>
+      <% else %>
+        <%= t("activities.summary.activity_header",
+              type: activity_type_label) %>
+      <% end %>
+    </h2>
+
+    <% case activity_data[:type] %>
+    <% when :education %>
+      <%= render partial: "activities/summary/education_table", locals: { activity: activity_data[:activity] } %>
+    <% when :community_service %>
+      <%= render partial: "activities/summary/volunteering_table", locals: { activity: activity_data[:activity] } %>
+    <% when :work_programs %>
+      <%= render partial: "activities/summary/job_training_table", locals: { activity: activity_data[:activity] } %>
+    <% when :employment %>
+      <% if activity_data[:payroll_account].present? %>
+        <%= render partial: "activities/summary/employment_table",
+                   locals: { payroll_account: activity_data[:payroll_account], persisted_report: @persisted_report } %>
+      <% else %>
+        <%= render partial: "activities/summary/self_attested_employment_table",
+                   locals: { activity: activity_data[:employment_activity] } %>
+      <% end %>
+    <% end %>
+
+    <% if activity_data[:type] == :employment %>
+      <% comment = activity_data[:payroll_account]&.additional_information || activity_data[:employment_activity]&.additional_comments %>
+      <% if comment.present? %>
+        <h3>
+          <%= t("activities.summary.additional_comments") %>
+        </h3>
+        <p>
+          <%= comment %>
+        </p>
+      <% end %>
+    <% elsif activity_data[:activity].respond_to?(:additional_comments) && activity_data[:activity].additional_comments.present? %>
+      <h3>
+        <%= t("activities.summary.additional_comments") %>
+      </h3>
+      <p>
+        <%= activity_data[:activity].additional_comments %>
+      </p>
+    <% end %>
+  </section>
+<% end %>
+</div>
+
+<section class="margin-top-5">
+  <h2>
+    <%= t("activities.summary.legal_agreement") %>
+  </h2>
+
+  <%= form_with model: @flow, url: activities_flow_summary_path, method: :patch, builder: UswdsFormBuilder do |f| %>
+    <%= f.check_box :consent_to_submit, {
+      label: t("activities.summary.consent_label_html",
+               agency_name: agency_translation("shared.agency_full_name"),
+               agency_initials: agency_translation("shared.agency_acronym"))
+    } %>
+
+    <%= f.submit t("activities.summary.submit", agency_name: agency_translation("shared.agency_full_name")), class: "usa-button" %>
+  <% end %>
+</section>

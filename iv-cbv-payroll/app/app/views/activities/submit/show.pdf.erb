@@ -1,0 +1,129 @@
+<% not_provided = t("activities.submit.pdf.not_provided") %>
+
+<% content_for :title, t("activities.submit.pdf.title") %>
+
+<h1>
+  <%= t("activities.submit.pdf.heading") %>
+</h1>
+<p>
+  <%= t("activities.submit.pdf.description") %>
+</p>
+
+<%= render TableComponent.new do |table| %>
+  <%= table.with_header do %>
+    <h2>
+      <%= t("activities.submit.pdf.report_overview") %>
+    </h2>
+  <% end %>
+  <%= table.with_row t("activities.submit.pdf.reporting_window"), @flow.reporting_window_display %>
+  <%= table.with_row t("activities.submit.pdf.confirmation_code"), @flow.confirmation_code %>
+  <%= table.with_row t("activities.submit.pdf.submitted_at"), l(@submission_timestamp, format: :long) %>
+<% end %>
+
+<%= render TableComponent.new do |table| %>
+  <%= table.with_header do %>
+    <h2>
+      <%= t("activities.submit.pdf.summary_heading") %>
+    </h2>
+  <% end %>
+  <%= table.with_row t("activities.submit.pdf.community_service_count"), @community_service_activities.size %>
+  <%= table.with_row t("activities.submit.pdf.work_programs_count"), @work_programs_activities.size %>
+  <%= table.with_row t("activities.submit.pdf.education_count"), @education_activities.size %>
+  <%= table.with_row t("activities.submit.pdf.income_activities"), @flow.payroll_accounts.size %>
+  <%= table.with_row t("activities.submit.pdf.total_hours"), @total_hours %>
+<% end %>
+
+<h2>
+<%= t("activities.education.title") %>
+</h2>
+
+<% if @education_activities.any? %>
+  <% @education_activities.each do |education_activity| %>
+    <% education_activity.nsc_enrollment_terms.each do |enrollment_term| %>
+      <%= render(EnrollmentTermTableComponent.new(nsc_enrollment_term: enrollment_term)) %>
+    <% end %>
+
+    <% if education_activity.additional_comments.present? %>
+      <h3><%= t("activities.summaries.show.additional_comments") %></h3>
+      <p><%= education_activity.additional_comments %></p>
+    <% end %>
+  <% end %>
+<% else %>
+  <%= t("activities.submit.pdf.no_education") %>
+<% end %>
+
+<h2>
+  <%= t("activities.submit.pdf.community_service_section") %>
+</h2>
+<% if @community_service_activities.any? %>
+  <%= render TableComponent.new do |table| %>
+    <%= table.with_subheader_row(class_names: "subheader-row base-lightest") do |row| %>
+      <%= row.with_data_cell(is_header: true, class_names: "text-nowrap")
+             .with_content(t("activities.submit.pdf.organization_name")) %>
+      <%= row.with_data_cell(is_header: true, class_names: "text-nowrap")
+             .with_content(t("activities.submit.pdf.hours")) %>
+      <%= row.with_data_cell(is_header: true, class_names: "text-nowrap")
+             .with_content(t("activities.submit.pdf.date")) %>
+    <% end %>
+    <% @community_service_activities.each do |activity| %>
+      <% date_value = activity.date ? l(activity.date) : not_provided %>
+      <%= table.with_row activity.organization_name.presence || not_provided, activity.hours || 0, date_value %>
+    <% end %>
+  <% end %>
+<% else %>
+  <p>
+    <%= t("activities.submit.pdf.no_community_service") %>
+  </p>
+<% end %>
+
+<h2>
+  <%= t("activities.submit.pdf.work_programs_section") %>
+</h2>
+<% if @work_programs_activities.any? %>
+  <%= render TableComponent.new do |table| %>
+    <%= table.with_subheader_row(class_names: "subheader-row base-lightest") do |row| %>
+      <%= row.with_data_cell(is_header: true, class_names: "text-nowrap")
+             .with_content(t("activities.submit.pdf.program_name")) %>
+      <%= row.with_data_cell(is_header: true, class_names: "text-nowrap")
+             .with_content(t("activities.submit.pdf.organization_address")) %>
+      <%= row.with_data_cell(is_header: true, class_names: "text-nowrap")
+             .with_content(t("activities.submit.pdf.hours")) %>
+    <% end %>
+    <% @work_programs_activities.each do |activity| %>
+      <% total_hours = activity.job_training_activity_months.sum(:hours) %>
+      <%= table.with_row activity.program_name.presence || not_provided,
+                         activity.organization_address.presence || not_provided,
+                         total_hours %>
+    <% end %>
+  <% end %>
+<% else %>
+  <p>
+    <%= t("activities.submit.pdf.no_work_programs") %>
+  </p>
+<% end %>
+
+<h2>
+  <%= t("activities.submit.pdf.income_activities") %>
+</h2>
+<% if @flow.payroll_accounts.any? %>
+  <%= render TableComponent.new do |table| %>
+    <%= table.with_subheader_row(class_names: "subheader-row base-lightest") do |row| %>
+      <%= row.with_data_cell(is_header: true, class_names: "text-nowrap")
+             .with_content(t("activities.employment.account_id")) %>
+      <%= row.with_data_cell(is_header: true, class_names: "text-nowrap")
+             .with_content(t("activities.employment.synchronization_status")) %>
+    <% end %>
+    <% @flow.payroll_accounts.each do |payroll_account| %>
+      <%= table.with_row payroll_account.aggregator_account_id,
+                         payroll_account.synchronization_status %>
+    <% end %>
+  <% end %>
+<% else %>
+  <p>
+    <%= t("activities.submit.pdf.no_income") %>
+  </p>
+<% end %>
+
+<p>
+  <%= t("activities.submit.pdf.disclaimer") %>
+</p>

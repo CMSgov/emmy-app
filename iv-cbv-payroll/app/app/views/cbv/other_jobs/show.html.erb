@@ -1,0 +1,18 @@
+<% content_for :title, t(".header") %>
+<h1><%= t(".header") %></h1>
+
+<p><%= t(".header_sub_text_html", agency_acronym: agency_translation("shared.agency_acronym"), agency_site: current_agency.agency_contact_website) %></p>
+<p><%= t(".header_lead") %></p>
+<ul>
+  <li><%= t(".header_bullet_1") %></li>
+  <li><%= t(".header_bullet_2") %></li>
+  <li><%= t(".header_bullet_3") %></li>
+  <li><%= t(".header_bullet_4") %></li>
+</ul>
+
+<%= form_with(model: @cbv_flow, url: cbv_flow_other_job_path, method: :patch, class: "maxw-none", builder: UswdsFormBuilder, id: "other_jobs_form") do |f| %>
+  <%= f.radio_button(:has_other_jobs, true, { label: t(".radio_yes", agency_acronym: agency_translation("shared.agency_acronym")) }) %>
+  <%= f.radio_button(:has_other_jobs, false, { label: t(".radio_no") }) %>
+
+  <%= f.submit t("continue") %>
+<% end %>

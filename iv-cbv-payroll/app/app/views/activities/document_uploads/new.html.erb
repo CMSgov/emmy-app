@@ -1,0 +1,70 @@
+<% title = t(@activity.document_upload_title_i18n_key, name: @activity.document_upload_object_title) %>
+<% content_for :title, title %>
+<%# i18n-tasks-use t('activities.document_uploads.new.title', name: 'name') %>
+<%# i18n-tasks-use t('activities.document_uploads.new.title_generic') %>
+<%# i18n-tasks-use t('activities.document_uploads.new.suggestion_text_html') %>
+<%# i18n-tasks-use t('activities.community_service.document_upload_suggestion_text_html') %>
+<%# i18n-tasks-use t('activities.education.document_upload_suggestion_text_html') %>
+<%# i18n-tasks-use t('activities.job_training.document_upload_suggestion_text_html') %>
+<%# i18n-tasks-use t('activities.employment.document_upload_suggestion_text_html') %>
+
+<% content_for :activity_flow_header do %>
+  <%= render ActivityFlowHeaderComponent.new(
+    title: t(@activity.document_upload_header_title_i18n_key),
+    exit_url: activities_flow_root_path,
+    back_url: @back_url
+  ) %>
+<% end %>
+
+<h1><%= title %></h1>
+<p><%= t(".description") %></p>
+<ul>
+  <% @activity.document_upload_verification_items.each do |item| %>
+    <li>
+      <strong><%= item[:label] %></strong>
+      <% if item[:details].present? %>
+        (<%= item[:details] %>)
+      <% end %>
+    </li>
+  <% end %>
+</ul>
+
+<%= form_with(builder: UswdsFormBuilder, scope: :activity, model: @activity, url: upload_path, method: :post) do |f| %>
+  <% if @activity.document_uploads.any? %>
+    <p>Uploaded Documents:</p>
+
+    <ul class="padding-0">
+      <% @activity.document_uploads.each do |attachment| %>
+        <%# Add hidden fields for the existing uploads so Rails won't delete them if the form is submitted a second time: %>
+        <%= f.hidden_field :document_uploads, multiple: true, value: attachment.signed_id %>
+
+        <li class="document-uploads__preview">
+          <% if (preview_url = document_upload_preview_url(attachment)) %>
+            <%= preview_url %>
+          <% else %>
+            <svg class="usa-icon document-uploads__preview-icon" aria-hidden="true" focusable="false" role="img">
+              <use xlink:href="<%= asset_path("@uswds/uswds/dist/img/sprite.svg#file_present") %>"></use>
+            </svg>
+          <% end %>
+          <span class="document-uploads__preview-filename">
+            <%= attachment.filename %>
+          </span>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+
+  <%= f.file_field :document_uploads,
+      multiple: true,
+      label: t(".input_label"),
+      hint: t(".input_hint"),
+      accept: "image/*,.pdf" %>
+
+  <%= render(AccordionComponent.new(id: "document-upload-suggestions")) do |accordion| %>
+    <% accordion.with_title { t(".suggestion_title") } %>
+    <% accordion.with_accordion_item do %>
+      <%= t(@activity.document_upload_suggestion_text) %>
+    <% end %>
+  <% end %>
+  <%= f.submit t(".continue") %>
+<% end %>

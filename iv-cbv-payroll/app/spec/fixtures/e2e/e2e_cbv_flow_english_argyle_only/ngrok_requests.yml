@@ -1,0 +1,404 @@
+---
+- :uri: "/webhooks/argyle/events"
+  :method: POST
+  :headers:
+    Accept:
+    - "*/*"
+    Accept-Encoding:
+    - gzip
+    Content-Length:
+    - '183'
+    Content-Type:
+    - application/json
+    Host:
+    - 1822b063dd3e.ngrok-free.app
+    User-Agent:
+    - ReactorNetty/1.1.28
+    X-Argyle-Signature:
+    - "<ARGYLE_WEBHOOK_SIGNATURE>"
+    X-Forwarded-For:
+    - 34.122.50.253
+    X-Forwarded-Host:
+    - 1822b063dd3e.ngrok-free.app
+    X-Forwarded-Proto:
+    - https
+  :body: |-
+    {
+      "event": "accounts.connected",
+      "name": "tdooner-e2e",
+      "data": {
+        "account": "019c0b39-0b68-fb0c-9282-57302afa2ed2",
+        "user": "019c0b39-021f-1499-2601-4988ca1a95bb"
+      }
+    }
+- :uri: "/webhooks/argyle/events"
+  :method: POST
+  :headers:
+    Accept:
+    - "*/*"
+    Accept-Encoding:
+    - gzip
+    Content-Length:
+    - '237'
+    Content-Type:
+    - application/json
+    Host:
+    - 1822b063dd3e.ngrok-free.app
+    User-Agent:
+    - ReactorNetty/1.1.28
+    X-Argyle-Signature:
+    - "<ARGYLE_WEBHOOK_SIGNATURE>"
+    X-Forwarded-For:
+    - 34.122.50.253
+    X-Forwarded-Host:
+    - 1822b063dd3e.ngrok-free.app
+    X-Forwarded-Proto:
+    - https
+  :body: |-
+    {
+      "event": "identities.added",
+      "name": "tdooner-e2e",
+      "data": {
+        "account": "019c0b39-0b68-fb0c-9282-57302afa2ed2",
+        "user": "019c0b39-021f-1499-2601-4988ca1a95bb",
+        "identity": "5cdb765f-8548-3438-a8ce-9f4cf005eeed"
+      }
+    }
+- :uri: "/webhooks/argyle/events"
+  :method: POST
+  :headers:
+    Accept:
+    - "*/*"
+    Accept-Encoding:
+    - gzip
+    Content-Length:
+    - '2151'
+    Content-Type:
+    - application/json
+    Host:
+    - 1822b063dd3e.ngrok-free.app
+    User-Agent:
+    - ReactorNetty/1.1.28
+    X-Argyle-Signature:
+    - "<ARGYLE_WEBHOOK_SIGNATURE>"
+    X-Forwarded-For:
+    - 34.122.50.253
+    X-Forwarded-Host:
+    - 1822b063dd3e.ngrok-free.app
+    X-Forwarded-Proto:
+    - https
+  :body: |-
+    {
+      "event": "accounts.updated",
+      "name": "tdooner-e2e-include-resource",
+      "data": {
+        "account": "019c0b39-0b68-fb0c-9282-57302afa2ed2",
+        "user": "019c0b39-021f-1499-2601-4988ca1a95bb",
+        "resource": {
+          "id": "019c0b39-0b68-fb0c-9282-57302afa2ed2",
+          "user": "019c0b39-021f-1499-2601-4988ca1a95bb",
+          "employers": [
+            "Aramark"
+          ],
+          "item": "item_000029932",
+          "source": "argyle_sandbox",
+          "created_at": "2026-01-29T19:26:53.846274Z",
+          "updated_at": "2026-01-29T19:27:04.358819Z",
+          "scanned_at": "2026-01-29T19:27:03.786704Z",
+          "connection": {
+            "status": "connected",
+            "error_code": null,
+            "error_message": null,
+            "updated_at": "2026-01-29T19:26:58.081481Z"
+          },
+          "direct_deposit_switch": {
+            "status": "idle",
+            "error_code": null,
+            "error_message": null,
+            "updated_at": "2026-01-29T19:26:54.287477Z"
+          },
+          "availability": {
+            "gigs": {
+              "status": "in_progress",
+              "updated_at": "2026-01-29T19:27:03.786704Z",
+              "available_count": 0,
+              "available_from": null,
+              "available_to": null
+            },
+            "paystubs": {
+              "status": "in_progress",
+              "updated_at": "2026-01-29T19:27:03.786704Z",
+              "available_count": 1,
+              "available_from": "2026-01-01T00:00:00Z",
+              "available_to": "2026-01-01T00:00:00Z"
+            },
+            "payroll_documents": {
+              "status": "synced",
+              "updated_at": "2026-01-29T19:27:00.905238Z"
+            },
+            "identities": {
+              "status": "synced",
+              "updated_at": "2026-01-29T19:27:03.717404Z"
+            },
+            "ratings": {
+              "status": "synced",
+              "updated_at": "2026-01-29T19:27:00.916216Z"
+            },
+            "vehicles": {
+              "status": "synced",
+              "updated_at": "2026-01-29T19:27:00.918448Z"
+            },
+            "deposit_destinations": {
+              "status": "synced",
+              "updated_at": "2026-01-29T19:26:59.393504Z"
+            },
+            "user_forms": null
+          },
+          "ongoing_refresh": {
+            "status": "disabled"
+          }
+        }
+      }
+    }
+- :uri: "/webhooks/argyle/events"
+  :method: POST
+  :headers:
+    Accept:
+    - "*/*"
+    Accept-Encoding:
+    - gzip
+    Content-Length:
+    - '2151'
+    Content-Type:
+    - application/json
+    Host:
+    - 1822b063dd3e.ngrok-free.app
+    User-Agent:
+    - ReactorNetty/1.1.28
+    X-Argyle-Signature:
+    - "<ARGYLE_WEBHOOK_SIGNATURE>"
+    X-Forwarded-For:
+    - 34.122.50.253
+    X-Forwarded-Host:
+    - 1822b063dd3e.ngrok-free.app
+    X-Forwarded-Proto:
+    - https
+  :body: |-
+    {
+      "event": "accounts.updated",
+      "name": "tdooner-e2e-include-resource",
+      "data": {
+        "account": "019c0b39-0b68-fb0c-9282-57302afa2ed2",
+        "user": "019c0b39-021f-1499-2601-4988ca1a95bb",
+        "resource": {
+          "id": "019c0b39-0b68-fb0c-9282-57302afa2ed2",
+          "user": "019c0b39-021f-1499-2601-4988ca1a95bb",
+          "employers": [
+            "Aramark"
+          ],
+          "item": "item_000029932",
+          "source": "argyle_sandbox",
+          "created_at": "2026-01-29T19:26:53.846274Z",
+          "updated_at": "2026-01-29T19:27:07.860327Z",
+          "scanned_at": "2026-01-29T19:27:07.499853Z",
+          "connection": {
+            "status": "connected",
+            "error_code": null,
+            "error_message": null,
+            "updated_at": "2026-01-29T19:26:58.081481Z"
+          },
+          "direct_deposit_switch": {
+            "status": "idle",
+            "error_code": null,
+            "error_message": null,
+            "updated_at": "2026-01-29T19:26:54.287477Z"
+          },
+          "availability": {
+            "gigs": {
+              "status": "in_progress",
+              "updated_at": "2026-01-29T19:27:07.499853Z",
+              "available_count": 0,
+              "available_from": null,
+              "available_to": null
+            },
+            "paystubs": {
+              "status": "in_progress",
+              "updated_at": "2026-01-29T19:27:07.499853Z",
+              "available_count": 2,
+              "available_from": "2025-12-01T00:00:00Z",
+              "available_to": "2026-01-01T00:00:00Z"
+            },
+            "payroll_documents": {
+              "status": "synced",
+              "updated_at": "2026-01-29T19:27:00.905238Z"
+            },
+            "identities": {
+              "status": "synced",
+              "updated_at": "2026-01-29T19:27:03.717404Z"
+            },
+            "ratings": {
+              "status": "synced",
+              "updated_at": "2026-01-29T19:27:00.916216Z"
+            },
+            "vehicles": {
+              "status": "synced",
+              "updated_at": "2026-01-29T19:27:00.918448Z"
+            },
+            "deposit_destinations": {
+              "status": "synced",
+              "updated_at": "2026-01-29T19:26:59.393504Z"
+            },
+            "user_forms": null
+          },
+          "ongoing_refresh": {
+            "status": "disabled"
+          }
+        }
+      }
+    }
+- :uri: "/webhooks/argyle/events"
+  :method: POST
+  :headers:
+    Accept:
+    - "*/*"
+    Accept-Encoding:
+    - gzip
+    Content-Length:
+    - '338'
+    Content-Type:
+    - application/json
+    Host:
+    - 1822b063dd3e.ngrok-free.app
+    User-Agent:
+    - ReactorNetty/1.1.28
+    X-Argyle-Signature:
+    - "<ARGYLE_WEBHOOK_SIGNATURE>"
+    X-Forwarded-For:
+    - 34.122.50.253
+    X-Forwarded-Host:
+    - 1822b063dd3e.ngrok-free.app
+    X-Forwarded-Proto:
+    - https
+  :body: |-
+    {
+      "event": "paystubs.partially_synced",
+      "name": "tdooner-e2e-partial",
+      "data": {
+        "account": "019c0b39-0b68-fb0c-9282-57302afa2ed2",
+        "user": "019c0b39-021f-1499-2601-4988ca1a95bb",
+        "available_from": "2025-10-01T00:00:00Z",
+        "available_to": "2026-01-01T00:00:00Z",
+        "available_count": 4,
+        "days_synced": 140
+      }
+    }
+- :uri: "/webhooks/argyle/events"
+  :method: POST
+  :headers:
+    Accept:
+    - "*/*"
+    Accept-Encoding:
+    - gzip
+    Content-Length:
+    - '331'
+    Content-Type:
+    - application/json
+    Host:
+    - 1822b063dd3e.ngrok-free.app
+    User-Agent:
+    - ReactorNetty/1.1.28
+    X-Argyle-Signature:
+    - "<ARGYLE_WEBHOOK_SIGNATURE>"
+    X-Forwarded-For:
+    - 34.122.50.253
+    X-Forwarded-Host:
+    - 1822b063dd3e.ngrok-free.app
+    X-Forwarded-Proto:
+    - https
+  :body: |-
+    {
+      "event": "gigs.partially_synced",
+      "name": "tdooner-e2e-partial",
+      "data": {
+        "account": "019c0b39-0b68-fb0c-9282-57302afa2ed2",
+        "user": "019c0b39-021f-1499-2601-4988ca1a95bb",
+        "item_id": "item_000029932",
+        "available_from": null,
+        "available_to": null,
+        "available_count": 0,
+        "days_synced": 140
+      }
+    }
+- :uri: "/webhooks/argyle/events"
+  :method: POST
+  :headers:
+    Accept:
+    - "*/*"
+    Accept-Encoding:
+    - gzip
+    Content-Length:
+    - '349'
+    Content-Type:
+    - application/json
+    Host:
+    - 1822b063dd3e.ngrok-free.app
+    User-Agent:
+    - ReactorNetty/1.1.28
+    X-Argyle-Signature:
+    - "<ARGYLE_WEBHOOK_SIGNATURE>"
+    X-Forwarded-For:
+    - 35.188.163.115
+    X-Forwarded-Host:
+    - 1822b063dd3e.ngrok-free.app
+    X-Forwarded-Proto:
+    - https
+  :body: |-
+    {
+      "event": "paystubs.partially_synced",
+      "name": "tdooner-e2e-partial-six-months",
+      "data": {
+        "account": "019c0b39-0b68-fb0c-9282-57302afa2ed2",
+        "user": "019c0b39-021f-1499-2601-4988ca1a95bb",
+        "available_from": "2025-08-01T00:00:00Z",
+        "available_to": "2026-01-01T00:00:00Z",
+        "available_count": 6,
+        "days_synced": 196
+      }
+    }
+- :uri: "/webhooks/argyle/events"
+  :method: POST
+  :headers:
+    Accept:
+    - "*/*"
+    Accept-Encoding:
+    - gzip
+    Content-Length:
+    - '342'
+    Content-Type:
+    - application/json
+    Host:
+    - 1822b063dd3e.ngrok-free.app
+    User-Agent:
+    - ReactorNetty/1.1.28
+    X-Argyle-Signature:
+    - "<ARGYLE_WEBHOOK_SIGNATURE>"
+    X-Forwarded-For:
+    - 34.122.50.253
+    X-Forwarded-Host:
+    - 1822b063dd3e.ngrok-free.app
+    X-Forwarded-Proto:
+    - https
+  :body: |-
+    {
+      "event": "gigs.partially_synced",
+      "name": "tdooner-e2e-partial-six-months",
+      "data": {
+        "account": "019c0b39-0b68-fb0c-9282-57302afa2ed2",
+        "user": "019c0b39-021f-1499-2601-4988ca1a95bb",
+        "item_id": "item_000029932",
+        "available_from": null,
+        "available_to": null,
+        "available_count": 0,
+        "days_synced": 196
+      }
+    }

@@ -1,0 +1,70 @@
+class CaseWorkerTransmitterJob < ApplicationJob
+  attr_reader :cbv_flow
+
+  queue_as :default
+
+  limits_concurrency to: 1,
+    key: ->(flow_id) {
+      flow = CbvFlow.find(flow_id)
+      if flow.cbv_applicant.client_agency_id == "nh_dhhs"
+        flow.cbv_applicant.client_agency_id
+      else
+        flow_id
+      end
+    },
+    duration: 2.minutes
+
+  def perform(cbv_flow_id)
+    @cbv_flow = CbvFlow.find(cbv_flow_id)
+    @current_agency = current_agency(@cbv_flow)
+
+    with_flow_tags(@cbv_flow) do
+      aggregator_report = AggregatorReportFetcher.new(@cbv_flow).report
+
+      transmitter_class.new(@cbv_flow, @current_agency, aggregator_report).deliver
+      @cbv_flow.touch(:transmitted_at)
+
+      track_transmitted_event(CbvFlow.find(cbv_flow_id), aggregator_report.paystubs)
+    end
+  end
+
+  def transmitter_class
+    case @current_agency.transmission_method
+    when Transmitters::SharedEmailTransmitter::TRANSMISSION_METHOD
+      Transmitters::SharedEmailTransmitter
+    when Transmitters::SftpTransmitter::TRANSMISSION_METHOD
+      Transmitters::SftpTransmitter
+    when Transmitters::EncryptedS3Transmitter::TRANSMISSION_METHOD
+      Transmitters::EncryptedS3Transmitter
+    when Transmitters::JsonTransmitter::TRANSMISSION_METHOD
+      Transmitters::JsonTransmitter
+    when Transmitters::HttpPdfTransmitter::TRANSMISSION_METHOD
+      Transmitters::HttpPdfTransmitter
+    when Transmitters::JsonAndPdfTransmitter::TRANSMISSION_METHOD
+      Transmitters::JsonAndPdfTransmitter
+    else
+      raise "Unsupported transmission method: #{@current_agency.transmission_method}"
+    end
+  end
+
+  def track_transmitted_event(cbv_flow, payments)
+    event_logger.track(TrackEvent::ApplicantSharedIncomeSummary, nil, {
+      time: Time.now.to_i,
+      client_agency_id: cbv_flow.cbv_applicant.client_agency_id,
+      cbv_applicant_id: cbv_flow.cbv_applicant_id,
+      cbv_flow_id: cbv_flow.id,
+      device_id: cbv_flow.device_id,
+      invitation_id: cbv_flow.cbv_flow_invitation_id,
+      account_count: cbv_flow.fully_synced_payroll_accounts.count,
+      paystub_count: payments.count,
+      account_count_with_additional_information:
+        cbv_flow.payroll_accounts.count { |payroll_account| payroll_account.additional_information.present? },
+      flow_started_seconds_ago: (cbv_flow.consented_to_authorized_use_at - cbv_flow.created_at).to_i,
+      locale: I18n.locale
+    })
+  end
+
+  def current_agency(cbv_flow)
+    Rails.application.config.client_agencies[cbv_flow.cbv_applicant.client_agency_id]
+  end
+end

@@ -1,0 +1,28 @@
+<div
+  class="usa-modal maxw-none-important"
+  id="help-modal"
+  aria-labelledby="help-modal-heading"
+  aria-describedby="help-modal-description"
+  data-controller="help"
+  data-help-url="<%= help_path %>"
+>
+  <div class="usa-modal__content">
+    <div class="usa-modal__main">
+      <div class="usa-modal__body padding-2" data-help-target="content">
+        <%= turbo_frame_tag "help_content" do %>
+          <%= render template: "help/index" %>
+        <% end %>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      class="usa-button usa-modal__close"
+      aria-label="Close this window"
+      data-close-modal>
+      <svg class="usa-icon" aria-hidden="true" focusable="false" role="img">
+        <use xlink:href="<%= asset_path("@uswds/uswds/dist/img/sprite.svg#close") %>"></use>
+      </svg>
+    </button>
+  </div>
+</div>

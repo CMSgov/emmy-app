@@ -1,0 +1,39 @@
+<% content_for :html_class, "bg-primary-lighter" %>
+<% content_for :body_div_class, "bg-primary-lighter" %>
+
+<section class="usa-section">
+  <div class="bg-white padding-y-7 padding-x-7 border border-base-lighter measure-5 line-height-sans-4 margin-x-auto font-body-xs">
+    <h3>
+      <span class="text-primary"><%= t("shared.pilot_name") %> | </span>
+      <%= agency_translation("shared.header.cbv_flow_title") %>
+    </h3>
+    <h1>
+      <%= agency_translation(".header") %>
+    </h1>
+    <div class="line-height-sans-5">
+      <p>
+        <%= t(".greeting") %>
+      </p>
+
+      <p><%= agency_translation(".body_1", agency_acronym: agency_translation("shared.agency_acronym")) %></p>
+      <p><%= agency_translation(".body_2_html", deadline: format_date(@cbv_flow_invitation.expires_at_local.to_s)) %></p>
+      <p><%= agency_translation(".body_3", app_name: agency_translation("shared.app_name")) %></p>
+
+      <p>
+        <%= t(".button_caption") %>
+      </p>
+    </div>
+
+    <p class="margin-y-5">
+      <a href="<%= @cbv_flow_invitation.to_url %>" class="usa-button width-auto" type="button">
+        <%= t(".button") %>
+      </a>
+    </p>
+
+    <hr >
+
+    <p class="font-body-3xs">
+      <%= t(".footer") %>
+    </p>
+  </div>
+</section>

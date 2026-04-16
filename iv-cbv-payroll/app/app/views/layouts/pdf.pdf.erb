@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="<%= I18n.locale %>">
+  <head>
+    <meta charset="utf-8" >
+    <title><%= content_for?(:title) ? yield(:title) : t("cbv.submits.show.pdf.client.header") %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+
+    <%= yield :head %>
+
+    <%= wicked_pdf_stylesheet_link_tag "application" %>
+  </head>
+
+  <body>
+    <div id="root">
+      <main id="main-content">
+        <section class="grid-container usa-section">
+          <%= yield %>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

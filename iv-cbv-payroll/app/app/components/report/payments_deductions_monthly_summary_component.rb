@@ -1,0 +1,37 @@
+# frozen_string_literal: true
+
+class Report::PaymentsDeductionsMonthlySummaryComponent < ViewComponent::Base
+  include ReportViewHelper
+  include Cbv::MonthlySummaryHelper
+
+  attr_reader :employer_name
+
+  def initialize(report, payroll_account, is_responsive: true, is_w2_worker:, pay_frequency_text:, use_activity_style: false)
+    @report = report
+
+    # Note: payroll_account may either be the ID or the payroll_account object
+    @account_id = payroll_account.class == String ? payroll_account : payroll_account.aggregator_account_id
+    @payroll_account_report = @report.find_account_report(@account_id)
+    @monthly_summary_data = ordered_monthly_summary_data(@report.summarize_by_month[@account_id], @report.flow)
+    @is_responsive = is_responsive
+    @is_w2_worker = is_w2_worker
+    @pay_frequency_text = pay_frequency_text
+    @use_activity_style = use_activity_style
+  end
+
+  def before_render
+    # Note: since ViewComponents do not know about what view they are rendered in until render time,
+    # the translation keys are not available until the before_render method.
+    @report_data_range = @report.flow.reporting_window_display || report_data_range(@report, @account_id)
+  end
+
+  private
+
+  def has_monthly_summary_results?
+    @monthly_summary_data.present?
+  end
+
+  def has_any_paystubs?
+    @monthly_summary_data.any? { |month_string, summary| summary[:paystubs].any? }
+  end
+end

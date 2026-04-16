@@ -1,0 +1,216 @@
+# syntax = docker/dockerfile:1
+
+# Steps for upgrading Ruby version / base image:
+# 1. Update the version number in three places:
+#      1. Here
+#      2. .ruby-version
+#      3. Gemfile
+# 2. Run `bin/update` and commit changes.
+# 3. Update Dockerfile to address any upgrades from the base ruby image.
+#      * Update versions of pinned debian packages
+#      * Remove manual security upgrades (if any)
+# 4. Ensure that docker build pasess:
+#      > make release-build OPTS="--tag iv-cbv-payroll:latest"
+# 5. Ensure that `wkhtmltopdf` runs:
+#      > docker run iv-cbv-payroll:latest bundle exec wkhtmltopdf --version
+ARG RUBY_VERSION=3.4.9
+
+
+##########################################################################################
+# BASE: Shared base docker image
+##########################################################################################
+FROM registry.docker.com/library/ruby:$RUBY_VERSION AS base
+
+# Upgrade packages in base image to address security issues.
+# We should be able to remove these after upgrading the base image to a version
+# that has the upgraded versions by default.
+# hadolint ignore=DL3008
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+      # CVE-2026-28693 \
+      imagemagick \
+      # CVE-2026-33416 \
+      libpng-dev \
+      # CVE-2026-4775 \
+      libtiff-dev \
+      # CVE-2026-2673 \
+      libssl-dev \
+      # CVE-2026-3497 \
+      openssh-client \
+    && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+# Auto-fix: OS package vulnerabilities detected by Trivy (managed automatically)
+# hadolint ignore=DL3008
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+      gir1.2-gdkpixbuf-2.0 \
+      libgdk-pixbuf-2.0-0 \
+      libgdk-pixbuf-2.0-dev \
+      libgdk-pixbuf2.0-bin \
+      libgdk-pixbuf2.0-common \
+    && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+# Rails app lives here
+WORKDIR /rails
+
+# Set production environment
+ENV RAILS_ENV="production" \
+    BUNDLE_DEPLOYMENT="1" \
+    BUNDLE_PATH="/usr/local/bundle" \
+    BUNDLER_VERSION='2.4'
+
+# Start the server by default, this can be overwritten at runtime
+EXPOSE 3000
+
+
+##########################################################################################
+# BUILD: Throw-away build stage
+##########################################################################################
+FROM base AS build
+
+# Install packages needed to build gems
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y \
+      build-essential=12.12 \
+      git=1:2.47.3-0+deb13u1 \
+      libpq-dev=17.9-0+deb13u1 \
+      npm=9.2.0~ds1-3 \
+      pkg-config=1.8.1-4 \
+    && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+# Copy application code
+COPY . .
+
+# chromium is not available for arm64, this could be problematic when developing locally on an arm64 machine
+# and running tests that require puppeteer.
+# Set default value for PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
+# Detect architecture and skip the installation of chromium if the architecture is arm64
+# see https://github.com/puppeteer/puppeteer/issues/7740#issuecomment-1016083451
+RUN if [ "$(uname -m)" = "arm64" ]; then \
+      export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false; \
+    fi
+
+RUN PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=$PUPPETEER_SKIP_CHROMIUM_DOWNLOAD npm install
+
+##########################################################################################
+# DEV: Used for development and test
+##########################################################################################
+FROM build AS dev
+
+ENV RAILS_ENV="development"
+
+# Set the tmp dir to the writeable tmp volume
+ENV TMPDIR="/rails/tmp"
+
+# Install packages needed for development
+# hadolint ignore=DL3008
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y \
+      postgresql-client-17 \
+      graphviz=2.42.4-3 \
+      && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+RUN mkdir -p /rails/tmp /docs/app/rendered && \
+    echo 0 > /docs/app/rendered/.database-diagram-schema-version
+
+RUN gem install bundler --no-document -v ${BUNDLER_VERSION} && \
+    bundle config set --local without production && \
+    bundle install && \
+    rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git
+
+CMD ["./bin/dev"]
+
+##########################################################################################
+# RELEASE-BUILD: Throw-away build stage for RELEASE
+##########################################################################################
+FROM build AS release-build
+
+RUN bundle config set --local without development test && \
+    bundle install && \
+    rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git
+
+# Precompile bootsnap code for faster boot times
+RUN bundle exec bootsnap precompile --gemfile app/ lib/
+
+# Precompiling assets for production without requiring secret RAILS_MASTER_KEY
+RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
+
+##########################################################################################
+# RELEASE: Used for production
+##########################################################################################
+FROM base AS release
+
+# Set the working directory so when we attach a shell we're in the project's root directory
+WORKDIR /rails
+
+# Copy the entrypoint script
+# See - https://www.docker.com/blog/docker-best-practices-choosing-between-run-cmd-and-entrypoint/
+COPY .docker/entrypoints/rails.sh /usr/bin/
+RUN chmod +x /usr/bin/rails.sh
+
+# Set the tmp dir to the writeable tmp volume
+ENV TMPDIR="/rails/tmp"
+ENV GNUPGHOME="/rails/tmp"
+ENV PIDFILE="/rails/tmp/pids/server.pid"
+
+# Install packages needed for deployment
+#
+# To debug a missing package version (i.e. if one of these versions gets
+# superceded in the upstream package repo), run:
+#
+#   docker run -ti registry.docker.com/library/ruby:3.4.9 bash
+#   apt-get install [package]
+#
+# and notice the version that was installed.
+# hadolint ignore=DL3008
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+        libgpgme11t64=1.24.2-3 \
+        libvips42t64=8.16.1-1+b1 \
+        postgresql-client-17 \
+        python-is-python3=3.13.3-1 \
+        python3-venv=3.13.5-1 \
+        python3-pip=25.1.1+dfsg-1 \
+        && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+# Install custom db migrate script
+COPY bin/db-migrate /usr/bin/
+
+# Copy built artifacts: gems, application, binary dependencies
+COPY --from=release-build /usr/local/bundle /usr/local/bundle
+COPY --from=release-build /rails /rails
+
+# Clean up any unused gems and ensure we have the correct versions
+RUN bundle clean --force && \
+    bundle install --no-cache
+
+# Pre-decompress the wkhtmltopdf binary so it doesn't need to happen at runtime
+# Prevents sporadic 500s on report generation, similar to known issue documented here:
+# https://github.com/zakird/wkhtmltopdf_binary_gem/issues/57
+RUN bundle exec wkhtmltopdf --version
+
+# Ensure all necessary directories exist
+RUN mkdir -p /rails/tmp/pids /rails/log /rails/db
+
+# Create volume for /rails/tmp
+VOLUME /rails/tmp
+
+# Run and own only the runtime files as a non-root user for security
+RUN useradd rails --create-home --shell /bin/bash --home /rails
+
+# Set permissions and ownership for the runtime files
+RUN chown -R rails:rails /rails/tmp /rails/log /rails/db /usr/local/bundle
+
+# Switch to non-root user
+USER rails:rails
+
+# Invoke the entrypoint script, passing it the rails server command
+ENTRYPOINT ["rails.sh"]
+CMD ["bin/rails", "server", "-b", "0.0.0.0"]

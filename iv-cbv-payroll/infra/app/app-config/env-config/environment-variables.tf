@@ -1,0 +1,283 @@
+locals {
+  # Map from environment variable name to environment variable value
+  # This is a map rather than a list so that variables can be easily
+  # overridden per environment using terraform's `merge` function
+  default_extra_environment_variables = {
+    # Environment variables for all terraform-deployed environments
+    RAILS_LOG_TO_STDOUT      = "true"
+    RAILS_SERVE_STATIC_FILES = "true"
+    RAILS_MAX_THREADS        = 10
+
+    # Set to true to inform the app that it is running in a container
+    DOCKERIZED = "true"
+    # LOG_LEVEL               = "info"
+    # DB_CONNECTION_POOL_SIZE = 5
+  }
+
+  ssm_environment_variables = {
+    ACTIVITY_HUB_ENABLED       = "/service/${var.app_name}-${var.environment}/activity-hub-enabled"
+    LA_LDH_PILOT_ENABLED       = "/service/${var.app_name}-${var.environment}/la-ldh-pilot-enabled"
+    SITE_ALERT_ENABLED         = "/service/${var.app_name}-${var.environment}/site-alert-enabled"
+    SITE_ALERT_TITLE_EN        = "/service/${var.app_name}-${var.environment}/site-alert-title-en"
+    SITE_ALERT_BODY_EN         = "/service/${var.app_name}-${var.environment}/site-alert-body-en"
+    SITE_ALERT_TITLE_ES        = "/service/${var.app_name}-${var.environment}/site-alert-title-es"
+    SITE_ALERT_BODY_ES         = "/service/${var.app_name}-${var.environment}/site-alert-body-es"
+    SITE_ALERT_TYPE            = "/service/${var.app_name}-${var.environment}/site-alert-type"
+    STRUCTURED_LOGGING_ENABLED = "/service/${var.app_name}-${var.environment}/structured-logging-enabled"
+  }
+
+  # Configuration for secrets
+  # Map of configurations for defining environment variables that pull from SSM parameter
+  # store. Configurations are of the format
+  #
+  # {
+  #   ENV_VAR_NAME = {
+  #     manage_method     = "generated" # or "manual" for a secret that was created and stored in SSM manually
+  #     secret_store_name = "/ssm/param/name"
+  #   }
+  # }
+  #
+  # Manage the secret values of them using AWS Systems Manager:
+  # https://us-east-1.console.aws.amazon.com/systems-manager/parameters/
+  secrets = {
+    SECRET_KEY_BASE = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/rails-secret-key-base"
+    },
+    RAILS_MASTER_KEY = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/rails-master-key"
+    },
+    MISSION_CONTROL_USER = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/mission-control-user"
+    },
+    MISSION_CONTROL_PASSWORD = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/mission-control-password"
+    },
+    SLACK_TEST_EMAIL = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/slack-test-email"
+    },
+    MIXPANEL_TOKEN = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/mixpanel-token"
+    },
+    NEWRELIC_KEY = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/newrelic-key"
+    },
+    NEW_RELIC_ENV = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/new-relic-env"
+    },
+    MAINTENANCE_MODE = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/maintenance-mode"
+    },
+    ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/active-record-encryption-primary-key"
+    },
+    ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/active-record-encryption-deterministic-key"
+    },
+    ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/active-record-encryption-key-derivation-salt"
+    },
+
+
+    # Transmission Configuration:
+    LA_LDH_INCOME_REPORT_URL = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/la-ldh-income-report-url"
+    },
+    LA_LDH_PDF_API_URL = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/la-ldh-pdf-api-url"
+    },
+    LA_LDH_INCOME_REPORT_APIKEY = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/la-ldh-income-report-apikey"
+    },
+    LA_LDH_INCOME_REPORT_ACCOUNTCODE = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/la-ldh-income-report-accountcode"
+    },
+    LA_LDH_TRANSMISSION_METHOD = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/la-ldh-transmission-method"
+    },
+    LA_LDH_INCLUDE_REPORT_PDF = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/la-ldh-include-report-pdf"
+    },
+    NH_DHHS_SFTP_USER = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/nh-dhhs-sftp-user"
+    },
+    NH_DHHS_SFTP_PRIVATE_KEY = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/nh-dhhs-sftp-private-key"
+    },
+    NH_DHHS_SFTP_URL = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/nh-dhhs-sftp-url"
+    },
+    NH_DHHS_SFTP_DIRECTORY = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/nh-dhhs-sftp-directory"
+    },
+
+    # Feature Flags:
+    SUPPORTED_PROVIDERS = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/supported-providers"
+    },
+
+    ACTIVEJOB_ENABLED = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/activejob-enabled"
+    },
+
+    # Pinwheel Configuration:
+    PINWHEEL_API_TOKEN_PRODUCTION = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/pinwheel-api-token-production"
+    },
+    PINWHEEL_API_TOKEN_DEVELOPMENT = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/pinwheel-api-token-development"
+    },
+    PINWHEEL_API_TOKEN_SANDBOX = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/pinwheel-api-token-sandbox"
+    },
+    LA_LDH_PINWHEEL_ENVIRONMENT = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/la-ldh-pinwheel-environment"
+    },
+    SANDBOX_PINWHEEL_ENVIRONMENT = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/sandbox-pinwheel-environment"
+    },
+
+
+    # Argyle Configuration:
+    LA_LDH_ARGYLE_ENVIRONMENT = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/la-ldh-argyle-environment"
+    },
+    SANDBOX_ARGYLE_ENVIRONMENT = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/sandbox-argyle-environment"
+    },
+    ARGYLE_API_TOKEN_SANDBOX_ID = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/argyle-api-token-sandbox-id"
+    },
+    ARGYLE_API_TOKEN_SANDBOX_SECRET = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/argyle-api-token-sandbox-secret"
+    },
+    ARGYLE_SANDBOX_WEBHOOK_SECRET = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/argyle-sandbox-webhook-secret"
+    },
+    ARGYLE_API_TOKEN_ID = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/argyle-api-token-id"
+    },
+    ARGYLE_API_TOKEN_SECRET = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/argyle-api-token-secret"
+    },
+    ARGYLE_WEBHOOK_SECRET = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/argyle-webhook-secret"
+    },
+
+    # SSO Configuration:
+    AZURE_SANDBOX_CLIENT_ID = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/azure-sandbox-client-id"
+    },
+    AZURE_SANDBOX_CLIENT_SECRET = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/azure-sandbox-client-secret"
+    },
+    AZURE_SANDBOX_TENANT_ID = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/azure-sandbox-tenant-id"
+    },
+
+    # Other site-specific Configuration:
+    LA_LDH_WEEKLY_REPORT_RECIPIENTS = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/la-ldh-weekly-report-recipients"
+    },
+    LA_LDH_DOMAIN_NAME = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/la-ldh-domain-name"
+    },
+    NH_DHHS_DOMAIN_NAME = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/nh-dhhs-domain-name"
+    }
+    SANDBOX_DOMAIN_NAME = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/sandbox-domain-name"
+    }
+
+    # Education API Credentials
+    NSC_ENVIRONMENT = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/nsc-environment"
+    }
+    ## Sandbox
+    NSC_API_URL_SANDBOX = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/nsc-api-url-sandbox"
+    }
+    NSC_TOKEN_URL_SANDBOX = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/nsc-token-url-sandbox"
+    }
+    NSC_CLIENT_ID_SANDBOX = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/nsc-client-id-sandbox"
+    }
+    NSC_CLIENT_SECRET_SANDBOX = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/nsc-client-secret-sandbox"
+    }
+    NSC_ACCOUNT_ID_SANDBOX = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/nsc-account-id-sandbox"
+    }
+    ## Production
+    NSC_API_URL = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/nsc-api-url"
+    }
+    NSC_TOKEN_URL = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/nsc-token-url"
+    }
+    NSC_CLIENT_ID = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/nsc-client-id"
+    }
+    NSC_CLIENT_SECRET = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/nsc-client-secret"
+    }
+    NSC_ACCOUNT_ID = {
+      manage_method     = "manual"
+      secret_store_name = "/service/${var.app_name}-${var.environment}/nsc-account-id"
+    }
+  }
+}

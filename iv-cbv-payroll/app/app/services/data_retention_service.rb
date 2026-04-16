@@ -1,0 +1,111 @@
+# This class is responsible for redacting data on all models in accordance with
+# our data retention policy.
+class DataRetentionService
+  # Redact invitations 7 days after they expire
+  REDACT_UNUSED_INVITATIONS_AFTER = 7.days
+
+  # Redact transmitted CbvFlows 7 days after they are sent to caseworker
+  REDACT_TRANSMITTED_CBV_FLOWS_AFTER = 7.days
+
+  # Redact persisted income data from activity flows 7 days after the flow's last update.
+  REDACT_ACTIVITY_FLOW_SUMMARIES_AFTER = 7.days
+
+  def redact_all!
+    redact_invitations
+    redact_incomplete_cbv_flows
+    redact_complete_cbv_flows
+    redact_activity_flow_summaries
+  end
+
+  def redact_invitations
+    CbvFlowInvitation
+      .unredacted
+      .includes(:cbv_applicant, :cbv_flows)
+      .find_each do |cbv_flow_invitation|
+        next unless Time.current.after?(cbv_flow_invitation.expires_at + REDACT_UNUSED_INVITATIONS_AFTER)
+
+        cbv_flow_invitation.redact!
+        cbv_flow_invitation.cbv_applicant&.redact! if cbv_flow_invitation.cbv_flows.none?
+      end
+  end
+
+  def redact_incomplete_cbv_flows
+    CbvFlow
+      .incomplete
+      .unredacted
+      .includes(:cbv_flow_invitation, :payroll_accounts)
+      .find_each do |cbv_flow|
+        if cbv_flow.cbv_flow_invitation.present?
+          # Redact CbvFlow records (together with their invitations) some period
+          # after the invitation expires.
+          invitation_redact_at = cbv_flow.cbv_flow_invitation.expires_at + REDACT_UNUSED_INVITATIONS_AFTER
+          next unless Time.current.after?(invitation_redact_at)
+
+          cbv_flow.redact!
+          cbv_flow.cbv_flow_invitation.redact!
+          cbv_flow.cbv_applicant&.redact!
+          cbv_flow.payroll_accounts.each(&:redact!)
+        else
+          # Redact standalone CbvFlow records some period after their last
+          # update.
+          #
+          # Although the CbvFlow is not updated on every page, sessions time out
+          # after 30 minutes, so it would be extremely unlikely for a valid
+          # session to still be in progress after 7 days.
+          flow_redact_at = cbv_flow.updated_at + REDACT_UNUSED_INVITATIONS_AFTER
+          next unless Time.now.after?(flow_redact_at)
+
+          cbv_flow.redact!
+          cbv_flow.cbv_applicant&.redact!
+          cbv_flow.payroll_accounts.each(&:redact!)
+        end
+      end
+  end
+
+  def redact_complete_cbv_flows
+    CbvFlow
+      .unredacted
+      .where("transmitted_at < ?", REDACT_TRANSMITTED_CBV_FLOWS_AFTER.ago)
+      .includes(:cbv_flow_invitation, :payroll_accounts)
+      .find_each do |cbv_flow|
+        cbv_flow.redact!
+        cbv_flow.cbv_applicant&.redact!
+        cbv_flow.payroll_accounts.each(&:redact!)
+      end
+  end
+
+  def redact_activity_flow_summaries
+    ActivityFlow
+      .where("activity_flows.updated_at < ?", REDACT_ACTIVITY_FLOW_SUMMARIES_AFTER.ago)
+      .joins(:activity_flow_monthly_summaries)
+      .merge(ActivityFlowMonthlySummary.unredacted)
+      .distinct
+      .includes(:payroll_accounts, :activity_flow_monthly_summaries)
+      .find_each do |activity_flow|
+        activity_flow.activity_flow_monthly_summaries.each(&:redact!)
+        activity_flow.payroll_accounts.each(&:redact!)
+      end
+  end
+
+  # Use after conducting a user test or other time we want to manually redact a
+  # specific person's data in the system.
+  def self.manually_redact_by_case_number!(case_number)
+    applicant = CbvApplicant.find_by!(case_number: case_number)
+    applicant.redact!
+    applicant.cbv_flow_invitations.map(&:redact!)
+    applicant.cbv_flows.map(&:redact!)
+    applicant.cbv_flows.each { |cbv_flow| cbv_flow.payroll_accounts.each(&:redact!) }
+    applicant.activity_flows.each do |flow|
+      flow.activity_flow_monthly_summaries.each(&:redact!)
+      flow.payroll_accounts.each(&:redact!)
+    end
+  end
+
+  def self.redact_case_numbers_by_agency(agency_id)
+    applicants = CbvApplicant.where(client_agency_id: agency_id)
+    applicants.find_each(batch_size: 200) do |applicant|
+      applicant.redact!({ case_number: :string })
+    end
+    Rails.logger.info "Redacted #{applicants.length} applicants"
+  end
+end

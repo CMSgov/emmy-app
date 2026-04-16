@@ -1,0 +1,19 @@
+<% content_for :title, t(".header") %>
+
+<% content_for :activity_flow_header do %>
+  <%= render ActivityFlowHeaderComponent.new(
+    title: t("activities.education.title_singular"),
+    exit_url: activities_flow_root_path
+  ) %>
+<% end %>
+
+<h1>
+  <%= t(".header") %>
+</h1>
+<p>
+  <%= t(".fetching_education_description") %>
+</p>
+
+<div data-controller="polling" data-polling-url-value="<%= @polling_url %>">
+  <%= render "status" %>
+</div>

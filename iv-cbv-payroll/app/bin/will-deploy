@@ -1,0 +1,151 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Use this script when preparing for a deploy:
+#
+#   bin/will-deploy
+#
+# The output will be automatically copied to your clipboard.
+# Then paste the message into Slack and apply formatting with Cmd+Shift+F.
+
+require "json"
+require "open-uri"
+require "open3"
+
+def linkify_jira(text)
+  linked_text = text.gsub(/\(#(\d+)\)/) do
+    "([##{$1}](https://github.com/DSACMS/iv-cbv-payroll/pull/#{$1}))"
+  end
+
+  linked_text.gsub(/^(?:FFS-)?(\d{3,4})(-[0-9]+)?:?\s+(.*)$/) do
+    "#{Regexp.last_match(3)} [[FFS-#{Regexp.last_match(1)}](https://jiraent.cms.gov/browse/FFS-#{Regexp.last_match(1)})]"
+  end
+end
+
+def run_command(*command)
+  stdout, status = Open3.capture2(*command)
+  raise "Command failed: #{command.join(' ')}" unless status.success?
+
+  stdout.strip
+end
+
+def fetch_production_version
+  response = URI.open("https://snap-income-pilot.com/health", &:read)
+  JSON.parse(response).fetch("version")
+end
+
+def commit_lines(prod, current_sha)
+  run_command(
+    "git", "log", "--no-decorate",
+    '--pretty=format:%s - %an|%H',
+    "#{prod}..#{current_sha}"
+  ).lines(chomp: true)
+end
+
+def prompt_for_category
+  loop do
+    warn "Is this user-facing? (b=Both, i=Emmy Income, e=Emmy CE, o=Other/Maintenance, s=Skip): "
+    category = $stdin.gets&.strip
+
+    case category&.downcase
+    when "b", "i", "e", "o", "s"
+      return category.downcase
+    else
+      warn "Invalid option. Please enter b, i, e, o, or s."
+    end
+  end
+end
+
+def tags_for_changes(both_changes, income_changes, ce_changes)
+  tags = "@emmy-platform"
+  has_income = both_changes.length + income_changes.length
+  has_ce = both_changes.length + ce_changes.length
+
+  if has_income.positive? && has_ce.zero?
+    "#{tags} @Ming"
+  elsif has_ce.positive? && has_income.zero?
+    "#{tags} @Jacob"
+  else
+    "#{tags} @Ming @Jacob"
+  end
+end
+
+def copy_to_clipboard(text)
+  IO.popen("pbcopy", "w") { |io| io.write(text) }
+end
+
+def append_changes(output, heading, changes)
+  return output if changes.empty?
+
+  output << "#{heading}\n"
+  changes.each do |change|
+    output << "#{linkify_jira("  • #{change}")}\n"
+  end
+  output
+end
+
+if ARGV.first == "--test"
+  puts linkify_jira("1234: Foo bar baz")
+  puts linkify_jira("FFS-1234: Foo bar baz")
+  puts linkify_jira("FFS-1234 Foo bar baz")
+  puts linkify_jira("FFS-1234-3: Foo bar baz")
+  puts linkify_jira("FFS-1234-3: Foo bar baz (#123)")
+  exit
+end
+
+run_command("git", "fetch", "--quiet")
+prod = fetch_production_version
+current_sha = run_command("git", "rev-parse", "origin/main")
+
+both_changes = []
+income_changes = []
+ce_changes = []
+other_changes = []
+
+warn "Categorizing changes for deployment..."
+warn "======================================"
+warn ""
+
+commit_lines(prod, current_sha).each do |commit_line|
+  commit, commit_hash = commit_line.split("|", 2)
+
+  if (match = commit.match(/\(#(\d+)\)/))
+    warn "Change: #{commit}"
+    warn "PR: https://github.com/DSACMS/iv-cbv-payroll/pull/#{match[1]}"
+  else
+    warn "Change: #{commit}"
+    warn "Commit: https://github.com/DSACMS/iv-cbv-payroll/commit/#{commit_hash}"
+  end
+
+  case prompt_for_category
+  when "b"
+    both_changes << commit
+  when "i"
+    income_changes << commit
+  when "e"
+    ce_changes << commit
+  when "o"
+    other_changes << commit
+  when "s"
+    warn "Skipping..."
+  end
+
+  warn ""
+end
+
+tags = tags_for_changes(both_changes, income_changes, ce_changes)
+
+output = +""
+output << "🚀 Will deploy `#{current_sha[0, 7]}` to production: 🚀 (cc #{tags})\n"
+output << "🧪 *[Launch the demo →](https://la-verify-demo.navapbc.cloud/demo)*\n\n"
+append_changes(output, "👥 *User facing changes to Emmy Income + Emmy CE*", both_changes)
+append_changes(output, "📝 *Emmy Income only user facing changes*", income_changes)
+append_changes(output, "🏆 *Emmy CE only user facing changes*", ce_changes)
+append_changes(output, "⚙️ *Other/Maintenance (Not user facing)*", other_changes)
+output << "\n"
+output << "See the [full diff on Github](https://github.com/DSACMS/iv-cbv-payroll/compare/#{prod[0, 7]}..#{current_sha[0, 7]}).\n"
+
+puts output
+copy_to_clipboard(output)
+warn ""
+warn "✅ Deployment message copied to clipboard!"

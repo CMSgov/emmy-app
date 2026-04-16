@@ -1,0 +1,81 @@
+@forward "uswds";
+@use "uswds" as *;
+
+.usa-alert__heading {
+  line-height: 1.2 !important;
+}
+
+.usa-accordion .usa-accordion__button {
+  line-height: 1 !important;
+}
+
+.usa-hint p {
+  margin: 3px 0;
+}
+
+// Form styles
+.usa-form .usa-button {
+  margin: units(4) 0;
+
+  @include at-media("mobile-lg") {
+    margin: units(5) 0;
+  }
+}
+
+.usa-date-picker__calendar {
+  top: 48px !important;
+  max-width: none;
+}
+
+
+// Make the navbar a bit taller on mobile, and increase the size of the "Menu"
+// button to compensate.
+$mobile-navbar-height: 4rem;
+@include at-media-max($theme-header-min-width) {
+  .usa-navbar {
+    height: $mobile-navbar-height;
+  }
+  .usa-menu-btn {
+    @include u-padding-x(2);
+    height: $mobile-navbar-height;
+  }
+}
+.usa-nav__primary {
+  flex-shrink: 0;
+}
+.maxw-half {
+  max-width: 50%;
+}
+.box-shadow-gray {
+  box-shadow: inset 0 0 0 1px color("base-light");
+}
+.pointer-events-none {
+  pointer-events: none;
+}
+.usa-input--disabled {
+  opacity: 0.5;
+  background-color: color("base-lightest");
+}
+
+tr td:first-child {
+  font-weight: bold;
+}
+
+// Responsive heading adjustments for mobile
+@include at-media-max('tablet') {
+  h1 {
+    @include u-font-size("sans", 11);
+  }
+  h2 {
+    @include u-font-size("sans", 9);
+  }
+  h3 {
+    @include u-font-size("sans", 8);
+  }
+}
+
+@include at-media-max('mobile-lg') {
+  .mobile-text-center {
+    text-align: center;
+  }
+}

@@ -1,0 +1,213 @@
+# i18n-tasks finds and manages missing and unused translations: https://github.com/glebm/i18n-tasks
+# <% require './lib/i18n_csv_tasks' %>
+
+# The "main" locale.
+base_locale: en
+## All available locales are inferred from the data by default. Alternatively, specify them explicitly:
+# locales: [es, fr]
+## Reporting locale, default: en. Available: en, ru.
+# internal_locale: en
+
+# Read and write translations.
+data:
+  ## Translations are read from the file system. Supported format: YAML, JSON.
+  ## Provide a custom adapter:
+  # adapter: I18n::Tasks::Data::FileSystem
+
+  # Locale files or `Find.find` patterns where translations are read from:
+  read:
+    ## Default:
+    # - config/locales/%{locale}.yml
+    ## More files:
+    # - config/locales/**/*.%{locale}.yml
+
+  # Locale files to write new keys to, based on a list of key pattern => file rules. Matched from top to bottom:
+  # `i18n-tasks normalize -p` will force move the keys according to these rules
+  write:
+    ## For example, write devise and simple form keys to their respective files:
+    # - ['{devise, simple_form}.*', 'config/locales/\1.%{locale}.yml']
+    ## Catch-all default:
+    # - config/locales/%{locale}.yml
+
+  # External locale data (e.g. gems).
+  # This data is not considered unused and is never written to.
+  external:
+    ## Example (replace %#= with %=):
+    # - "<%#= %x[bundle info vagrant --path].chomp %>/templates/locales/%{locale}.yml"
+
+  ## Specify the router (see Readme for details). Valid values: conservative_router, pattern_router, or a custom class.
+  # router: conservative_router
+
+  yaml:
+    write:
+      # do not wrap lines at 80 characters
+      line_width: -1
+
+  ## Pretty-print JSON:
+  # json:
+  #   write:
+  #     indent: '  '
+  #     space: ' '
+  #     object_nl: "\n"
+  #     array_nl: "\n"
+
+# Find translate calls
+search:
+  ## Paths or `Find.find` patterns to search in:
+  # paths:
+  #  - app/
+
+  ## Root directories for relative keys resolution.
+  relative_roots:
+  - app/controllers
+  - app/helpers
+  - app/mailers
+  - app/presenters
+  - app/views
+  # In order for relative paths to work in component sidecar directories, we
+  # need to add each sidecar directory here.
+  # <% Dir["app/components/*"].each do |component_directory| %>
+  - <%= component_directory %>
+  # <% end %>
+
+  ## Directories where method names which should not be part of a relative key resolution.
+  # By default, if a relative translation is used inside a method, the name of the method will be considered part of the resolved key.
+  # Directories listed here will not consider the name of the method part of the resolved key
+  #
+  # relative_exclude_method_name_paths:
+
+  ## Files or `File.fnmatch` patterns to exclude from search. Some files are always excluded regardless of this setting:
+  ##   *.jpg *.jpeg *.png *.gif *.svg *.ico *.eot *.otf *.ttf *.woff *.woff2 *.pdf *.css *.sass *.scss *.less
+  ##   *.yml *.json *.zip *.tar.gz *.swf *.flv *.mp3 *.wav *.flac *.webm *.mp4 *.ogg *.opus *.webp *.map *.xlsx
+  exclude:
+    - app/assets/images
+    - app/assets/fonts
+    - app/assets/videos
+    - app/assets/builds
+
+  ## Alternatively, the only files or `File.fnmatch patterns` to search in `paths`:
+  ## If specified, this settings takes priority over `exclude`, but `exclude` still applies.
+  # only: ["*.rb", "*.html.slim"]
+
+  ## If `strict` is `false`, guess usages such as t("categories.#{category}.title"). The default is `true`.
+  # strict: true
+
+  ## Allows adding ast_matchers for finding translations using the AST-scanners
+  ## The available matchers are:
+  ## - RailsModelMatcher
+  ##     Matches ActiveRecord translations like
+  ##     User.human_attribute_name(:email) and User.model_name.human
+  ##
+  ## To implement your own, please see `I18n::Tasks::Scanners::AstMatchers::BaseMatcher`.
+  # <%# I18n::Tasks.add_ast_matcher('I18n::Tasks::Scanners::AstMatchers::RailsModelMatcher') %>
+
+  ## Multiple scanners can be used. Their results are merged.
+  ## The options specified above are passed down to each scanner. Per-scanner options can be specified as well.
+  ## See this example of a custom scanner: https://github.com/glebm/i18n-tasks/wiki/A-custom-scanner-example
+
+## Translation Services
+# translation:
+#   # Google Translate
+#   # Get an API key and set billing info at https://code.google.com/apis/console to use Google Translate
+#   google_translate_api_key: "AbC-dEf5"
+#   # DeepL Pro Translate
+#   # Get an API key and subscription at https://www.deepl.com/pro to use DeepL Pro
+#   deepl_api_key: "48E92789-57A3-466A-9959-1A1A1A1A1A1A"
+#   # deepl_host: "https://api.deepl.com"
+#   # deepl_version: "v2"
+#   # add additional options to the DeepL.translate call: https://www.deepl.com/docs-api/translate-text/translate-text/
+#   deepl_options:
+#     formality: prefer_less
+## Do not consider these keys missing:
+ignore_missing:
+  all:
+    - 'shared.languages.*'
+    - 'shared.header.{title,close,demo_banner,menu}'
+  en:
+    - "date.*"    # Defaults provided by rails-i18n
+    - "time.*"    # Defaults provided by rails-i18n
+    - "payment_frequencies.*"   # Helper method uses English values directly
+  es:
+    # Caseworker emails that are only supported in English:
+    - "activerecord.errors.models.cbv_flow_invitation.*"
+    - "activerecord.errors.models.cbv_applicant*"
+    - "caseworker_mailer.summary_email.*"
+    # Caseworker PDF strings that are only supported in English:
+    - "cbv.submits.show.pdf.caseworker.*"
+    # LA wind down content
+    - "pages.home.pilot_ended.la_ldh.*"
+    # Activity Hub flow pages/models
+    - "shared.credit_hours*"
+    - "activities.*"
+    - "cbv.*.activity_flow.*" # ActivityFlow copy overrides in controllers/views from CBV flow
+    - "activerecord.errors.models.job_training_activity.*"
+    - "activerecord.errors.models.education_activity.*"
+    - "activerecord.errors.models.volunteering_activity.*"
+    - "components.enrollment_term_table_component.*"
+    - "shared.table_headers.*"
+    - "activity_flow_progress_indicator.*"
+    - "activerecord.errors.models.volunteering_activity_month.*" # Self attestation hours entry error messages
+    - "activerecord.errors.models.job_training_activity_month.*" # Self attestation hours entry error messages
+    # Header logo alt text
+    - "shared.header.logo_alt_text.nh_dhhs"
+
+    # Currently awaiting translation:
+    # - "example.strings.*"   # Tag with ticket number that created or modified the string
+
+## Consider these keys used:
+ignore_unused:
+  all:
+    - "*.{sandbox,la_ldh,default,nh_dhhs}" # site-specific translations
+    - "activerecord.errors.*"                     # model errors are not always explicitly used
+    - "date.*"                                    # date formats are not always explicitly used
+    - "time.*"                                    # time formats are not always explicitly used
+    - "aggregator_strings.*"                      # dynamically looked up aggregator translations
+    - "help.show.*.intro"                         # dynamically looked up help translations
+    - "help.show.credentials.security_message"    # dynamically looked up help translations
+    - "cbv.submits.show.pdf.caseworker.*" #dynamically looked up translations
+    - "cbv.submits.show.pdf.client.agency_id_number" #dynamically looked up translations
+    - "cbv.submits.show.pdf.shared.additional_jobs_to_report" #dynamically used when applicant does not supply additional jobs
+    - "cbv.submits.show.pdf.shared.additional_jobs_to_report_html" #dynamically used when applicant supplies additional jobs
+    - "activities.employment.hours_input.*" # scope passed as t_scope in shared _hours_input partial
+
+csv:
+  # see: https://github.com/glebm/i18n-tasks/wiki/Custom-CSV-import-and-export-tasks
+  # usage:
+  #   bundle exec i18n-tasks csv-export
+  export:
+    - "tmp/exported-locales.csv"
+  # usage:
+  #   bundle exec i18n-tasks csv-import
+  import: []
+    #- tmp/i18n-export/main.csv
+    #- tmp/i18n-export/faqs.csv
+
+## Unused examples of how to use this file:
+
+## Exclude these keys from the `i18n-tasks eq-base' report:
+# ignore_eq_base:
+#   all:
+#     - common.ok
+#   fr,es:
+#     - common.brand
+
+## Exclude these keys from the `i18n-tasks check-consistent-interpolations` report:
+# ignore_inconsistent_interpolations:
+# - 'activerecord.attributes.*'
+
+## Ignore these keys completely:
+# ignore:
+#  - kaminari.*
+
+## Sometimes, it isn't possible for i18n-tasks to match the key correctly,
+## e.g. in case of a relative key defined in a helper method.
+## In these cases you can use the built-in PatternMapper to map patterns to keys, e.g.:
+#
+# <%# I18n::Tasks.add_scanner 'I18n::Tasks::Scanners::PatternMapper',
+#       only: %w(*.html.haml *.html.slim),
+#       patterns: [['= title\b', '.page_title']] %>
+#
+# The PatternMapper can also match key literals via a special %{key} interpolation, e.g.:
+#
+# <%# I18n::Tasks.add_scanner 'I18n::Tasks::Scanners::PatternMapper',
+#       patterns: [['\bSpree\.t[( ]\s*%{key}', 'spree.%{key}']] %>
