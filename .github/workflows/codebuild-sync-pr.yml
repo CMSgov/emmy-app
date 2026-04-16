@@ -1,0 +1,130 @@
+name: Manage CodeBuild Sync PR
+
+on:
+  push:
+    branches:
+      - import-from-dsacms-*
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: codebuild-sync-pr
+  cancel-in-progress: false
+
+jobs:
+  manage-sync-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create current PR and close superseded PRs
+        id: manage-prs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branchPrefix = "import-from-dsacms-";
+            const currentBranch = context.ref.replace("refs/heads/", "");
+            const repoFullName = `${context.repo.owner}/${context.repo.repo}`;
+
+            if (!currentBranch.startsWith(branchPrefix)) {
+              core.setFailed(`Unexpected branch name: ${currentBranch}`);
+              return;
+            }
+
+            const prTitle = `Sync changes from DSACMS (${currentBranch})`;
+            const prBody = [
+              "## Summary",
+              "",
+              `This pull request was generated automatically for branch \`${currentBranch}\`.`,
+              "",
+              "## Notes",
+              "",
+              "- Created after the CodeBuild sync job pushed a new import branch.",
+              "- Older open sync PRs are closed automatically when a newer import branch arrives.",
+            ].join("\n");
+
+            const currentHead = `${context.repo.owner}:${currentBranch}`;
+            const existingCurrentPrs = await github.paginate(
+              github.rest.pulls.list,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: "open",
+                head: currentHead,
+                base: "main",
+                per_page: 100,
+              }
+            );
+
+            let currentPr = existingCurrentPrs[0];
+
+            if (currentPr) {
+              currentPr = (
+                await github.rest.pulls.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: currentPr.number,
+                  title: prTitle,
+                  body: prBody,
+                })
+              ).data;
+            } else {
+              currentPr = (
+                await github.rest.pulls.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  head: currentBranch,
+                  base: "main",
+                  title: prTitle,
+                  body: prBody,
+                  maintainer_can_modify: true,
+                })
+              ).data;
+            }
+
+            const openPrs = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              base: "main",
+              per_page: 100,
+            });
+
+            const stalePrs = openPrs.filter((pr) => {
+              if (pr.number === currentPr.number) {
+                return false;
+              }
+
+              if (pr.head.repo?.full_name !== repoFullName) {
+                return false;
+              }
+
+              return pr.head.ref.startsWith(branchPrefix);
+            });
+
+            for (const stalePr of stalePrs) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: stalePr.number,
+                body: `Closing as superseded by #${currentPr.number}. Each new CodeBuild import branch includes the latest accumulated changes.`,
+              });
+
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: stalePr.number,
+                state: "closed",
+              });
+            }
+
+            core.setOutput("pr-number", String(currentPr.number));
+            core.setOutput("pr-url", currentPr.html_url);
+            core.setOutput("closed-count", String(stalePrs.length));
+
+      - name: Summarize result
+        run: |
+          echo "Created or updated PR #${{ steps.manage-prs.outputs.pr-number }}."
+          echo "PR URL: ${{ steps.manage-prs.outputs.pr-url }}"
+          echo "Closed superseded PRs: ${{ steps.manage-prs.outputs.closed-count }}"
