@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_13_180907) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_13_203000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -85,6 +85,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_13_180907) do
     t.string "device_id"
     t.uuid "end_user_id", default: -> { "gen_random_uuid()" }, null: false
     t.bigint "identity_id"
+    t.integer "renewal_required_months"
     t.integer "reporting_window_months"
     t.string "reporting_window_type"
     t.datetime "updated_at", null: false
@@ -166,6 +167,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_13_180907) do
     t.datetime "created_at", null: false
     t.integer "credit_hours"
     t.string "data_source", default: "validated", null: false
+    t.boolean "draft", default: false, null: false
     t.string "school_name"
     t.string "state"
     t.string "status", default: "unknown"
@@ -194,6 +196,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_13_180907) do
     t.string "contact_phone_number"
     t.datetime "created_at", null: false
     t.string "data_source", default: "self_attested", null: false
+    t.boolean "draft", default: false, null: false
     t.string "employer_name"
     t.boolean "is_self_employed", default: false
     t.string "state"
@@ -232,6 +235,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_13_180907) do
     t.string "contact_phone_number"
     t.datetime "created_at", null: false
     t.string "data_source", default: "self_attested", null: false
+    t.boolean "draft", default: false, null: false
     t.string "organization_address"
     t.string "organization_name"
     t.string "program_name"
@@ -272,6 +276,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_13_180907) do
     t.string "aggregator_account_id"
     t.datetime "created_at", null: false
     t.string "data_source", default: "validated", null: false
+    t.boolean "draft", default: false, null: false
     t.bigint "flow_id", null: false
     t.string "flow_type"
     t.datetime "income_synced_at", precision: nil
@@ -435,6 +440,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_13_180907) do
     t.datetime "created_at", null: false
     t.string "data_source", default: "self_attested", null: false
     t.date "date"
+    t.boolean "draft", default: false, null: false
     t.integer "hours"
     t.string "organization_name"
     t.string "state"
