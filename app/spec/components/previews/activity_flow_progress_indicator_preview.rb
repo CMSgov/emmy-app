@@ -14,7 +14,17 @@ class ActivityFlowProgressIndicatorPreview < ApplicationPreview
     result = make_result(Date.new(2026, 1, 1), 77, earnings_cents: 597_00)
 
     render ActivityFlowProgressIndicator.new(
-      monthly_calculation_results: [ result ]
+      monthly_calculation_results: [ result ],
+      show_unit_toggle: true
+    )
+  end
+
+  def one_month_with_toggle
+    result = make_result(Date.new(2026, 1, 1), 40, earnings_cents: 500_00)
+
+    render ActivityFlowProgressIndicator.new(
+      monthly_calculation_results: [ result ],
+      show_unit_toggle: true
     )
   end
 
@@ -52,7 +62,8 @@ class ActivityFlowProgressIndicatorPreview < ApplicationPreview
     results << make_result(Date.new(2025, 11, 1), 40, earnings_cents: 200_00) # hours
 
     render ActivityFlowProgressIndicator.new(
-      monthly_calculation_results: results
+      monthly_calculation_results: results,
+      show_unit_toggle: true
     )
   end
 
@@ -69,7 +80,8 @@ class ActivityFlowProgressIndicatorPreview < ApplicationPreview
     render ActivityFlowProgressIndicator.new(
       monthly_calculation_results: results,
       variant: :renewal,
-      required_month_count: required_months.to_i
+      required_month_count: required_months.to_i,
+      show_unit_toggle: true
     )
   end
 
@@ -87,6 +99,47 @@ class ActivityFlowProgressIndicatorPreview < ApplicationPreview
       monthly_calculation_results: results,
       variant: :renewal,
       required_month_count: required_months.to_i
+    )
+  end
+
+  def review_in_progress
+    results = []
+    results << make_result(Date.new(2026, 1, 1), 50)
+    results << make_result(Date.new(2026, 2, 1), 35, earnings_cents: 138_00)
+    results << make_result(Date.new(2026, 3, 1), 80)
+
+    render ActivityFlowProgressIndicator.new(
+      monthly_calculation_results: results,
+      display_variant: :review
+    )
+  end
+
+  def review_completed
+    results = []
+    results << make_result(Date.new(2026, 1, 1), 82)
+    results << make_result(Date.new(2026, 2, 1), 91)
+    results << make_result(Date.new(2026, 3, 1), 88)
+
+    render ActivityFlowProgressIndicator.new(
+      monthly_calculation_results: results,
+      display_variant: :review
+    )
+  end
+
+  def review_renewal_completed
+    results = []
+    results << make_result(Date.new(2025, 8, 1), 88)
+    results << make_result(Date.new(2025, 9, 1), 0)
+    results << make_result(Date.new(2025, 10, 1), 86)
+    results << make_result(Date.new(2025, 11, 1), 95)
+    results << make_result(Date.new(2025, 12, 1), 90)
+    results << make_result(Date.new(2026, 1, 1), 0)
+
+    render ActivityFlowProgressIndicator.new(
+      monthly_calculation_results: results,
+      variant: :renewal,
+      required_month_count: 4,
+      display_variant: :review
     )
   end
 
