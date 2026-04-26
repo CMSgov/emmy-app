@@ -110,6 +110,61 @@ RSpec.describe ActivityFlow, type: :model do
     end
   end
 
+  describe "#required_month_count" do
+    it "returns reporting_window_months for application flows" do
+      flow = create(:activity_flow, reporting_window_type: "application", reporting_window_months: 3)
+
+      expect(flow.required_month_count).to eq(3)
+    end
+
+    it "defaults to reporting_window_months for renewal flows when no override is configured" do
+      flow = create(:activity_flow, reporting_window_type: "renewal", reporting_window_months: 6)
+
+      expect(flow.required_month_count).to eq(6)
+    end
+
+    it "uses the agency renewal required-month count for renewal flows" do
+      stub_client_agency_config_value("sandbox", "renewal_required_months", 3)
+      flow = create(:activity_flow, reporting_window_type: "renewal", reporting_window_months: 6)
+
+      expect(flow.required_month_count).to eq(3)
+    end
+
+    it "prefers persisted override over agency config for renewal flows" do
+      stub_client_agency_config_value("sandbox", "renewal_required_months", 4)
+      flow = create(:activity_flow, reporting_window_type: "renewal", reporting_window_months: 6)
+      flow.set_required_month_count!(2)
+
+      expect(flow.required_month_count).to eq(2)
+    end
+
+    it "keeps the persisted required-month count even if agency config changes later" do
+      stub_client_agency_config_value("sandbox", "renewal_required_months", 2)
+      flow = create(:activity_flow, reporting_window_type: "renewal", reporting_window_months: 6)
+      stub_client_agency_config_value("sandbox", "renewal_required_months", 5)
+
+      expect(flow.required_month_count).to eq(2)
+    end
+
+    it "falls back to six months when renewal month fields are missing" do
+      flow = create(:activity_flow, reporting_window_type: "renewal", reporting_window_months: 6, renewal_required_months: 6)
+      flow.update_columns(reporting_window_months: nil, renewal_required_months: nil)
+
+      expect(flow.required_month_count).to eq(6)
+    end
+  end
+
+  describe "#set_reporting_window_months!" do
+    it "updates reporting_window_months" do
+      flow = create(:activity_flow, reporting_window_type: "renewal", reporting_window_months: 6, renewal_required_months: 6)
+
+      flow.set_reporting_window_months!(3)
+
+      expect(flow.reload.reporting_window_months).to eq(3)
+      expect(flow.renewal_required_months).to eq(6)
+    end
+  end
+
   describe "#after_payroll_sync_succeeded" do
     let(:flow) { create(:activity_flow, reporting_window_months: 1) }
     let(:payroll_account) { create(:payroll_account, :pinwheel_fully_synced, flow: flow, aggregator_account_id: "acct-1") }
@@ -146,28 +201,23 @@ RSpec.describe ActivityFlow, type: :model do
       expect(flow.any_activities_added?).to be false
     end
 
-    it "returns false when flow has an education activity without enrollment data" do
-      create(:education_activity, activity_flow: flow)
+    it "returns false when flow only has draft activities" do
+      create(:volunteering_activity, activity_flow: flow, draft: true)
 
       expect(flow.any_activities_added?).to be false
-    end
-
-    it "returns true when flow has an education activity with enrollment data" do
-      education_activity = create(:education_activity, activity_flow: flow)
-      create(:nsc_enrollment_term, education_activity:)
-
-      expect(flow.any_activities_added?).to be true
     end
 
     [
       [ :volunteering_activity, :activity_flow ],
       [ :job_training_activity, :activity_flow ],
+      [ :education_activity, :activity_flow ],
+      [ :employment_activity, :activity_flow ],
       [ :payroll_account, :flow ]
     ].each do |factory_name, flow_attribute|
       activity_name = factory_name.to_s.humanize.downcase
 
-      it "returns true when flow includes #{activity_name}" do
-        create(factory_name, flow_attribute => flow)
+      it "returns true when flow includes a published #{activity_name}" do
+        create(factory_name, flow_attribute => flow, draft: false)
         expect(flow.any_activities_added?).to be true
       end
     end
