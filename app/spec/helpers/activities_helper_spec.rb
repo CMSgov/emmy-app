@@ -32,6 +32,16 @@ RSpec.describe ActivitiesHelper do
 
         expect(state).to eq(:in_progress)
       end
+
+      it "returns completed when complete months meet the required-month threshold" do
+        state = helper.activity_hub_state(
+          any_activities_added: true,
+          monthly_results: [ meeting_result, meeting_result, not_meeting_result ],
+          required_month_count: 2
+        )
+
+        expect(state).to eq(:completed)
+      end
     end
 
     describe "#activity_hub_title_key" do
@@ -493,11 +503,11 @@ RSpec.describe ActivitiesHelper do
       expect(result.first[:name]).to eq("ACME Corp")
     end
 
-    it "includes edit path to payment details" do
+    it "includes edit path to payment details with from_edit" do
       result = helper.employment_cards([ payroll_account ], mock_report, reporting_range)
 
       expect(result.first[:edit_path]).to eq(
-        helper.activities_flow_income_payment_details_path(user: { account_id: account_id })
+        helper.activities_flow_income_payment_details_path(user: { account_id: account_id }, from_edit: 1)
       )
     end
 
