@@ -5,14 +5,14 @@ RSpec::Matchers.define_negated_matcher :not_change, :change
 RSpec.describe DemoLauncherController, type: :controller do
   render_views
 
-  describe "GET #show" do
+  describe "GET #advanced" do
     it "renders the show template" do
-      get :show
+      get :advanced
       expect(response).to have_http_status(:success)
     end
 
     it "renders the tokenized link share widget" do
-      get :show
+      get :advanced
 
       expect(response.body).to include("Shareable link")
       expect(response.body).to include("Copy link")
@@ -20,12 +20,12 @@ RSpec.describe DemoLauncherController, type: :controller do
     end
 
     it "sets the session to the activity flow so the header renders Emmy branding" do
-      get :show
+      get :advanced
       expect(session[:flow_type]).to eq(:activity)
     end
 
     it "displays test scenario radio options", :aggregate_failures do
-      get :show
+      get :advanced
       rendered = response.body
       expect(rendered).to match(/Test Scenarios/i)
       expect(rendered).to match(/Lynette Oyola/)
@@ -41,7 +41,7 @@ RSpec.describe DemoLauncherController, type: :controller do
     end
 
     it "displays fake test scenario options with single and multi-term" do
-      get :show
+      get :advanced
       rendered = response.body
       expect(rendered).to match(/Fake Test Scenarios/)
       expect(rendered).to include('id="test_scenario_partial_enrollment_multi_term"')
@@ -49,9 +49,23 @@ RSpec.describe DemoLauncherController, type: :controller do
       expect(rendered).to include('id="test_scenario_renewal_half_time_last_4_of_6_avery"')
       expect(rendered).to include('id="test_scenario_partial_enrollment_maya"')
       expect(rendered).to include('id="test_scenario_summer_term_carryover_sage"')
+      expect(rendered).to include('id="test_scenario_spring_fall_no_summer_morgan"')
       expect(rendered).to match(/Avery Testuser/)
       expect(rendered).to match(/Sage Testuser/)
+      expect(rendered).to match(/Morgan Testuser/)
       expect(rendered).to match(/Spring carryover for summer months/)
+      expect(rendered).to match(/Spring and fall enrollment with no summer term/)
+    end
+
+    it "displays the pre-populated activities section for CE flow" do
+      get :advanced
+      rendered = response.body
+      expect(rendered).to include("Pre-populated activities")
+      expect(rendered).to include('name="volunteering_enabled"')
+      expect(rendered).to include('name="volunteering_organization_name"')
+      expect(rendered).to include('name="employment_enabled"')
+      expect(rendered).to include('name="employment_employer_name"')
+      expect(rendered).to include('name="employment_gross_income_per_month"')
     end
   end
 
@@ -547,6 +561,93 @@ RSpec.describe DemoLauncherController, type: :controller do
         expect(invitation.reference_id).to eq("demo-summer_term_carryover_sage")
         expect(response).to redirect_to(%r{/activities/start/#{invitation.auth_token}})
         expect(response.location).to include("reporting_window_start=2025-07-01")
+      end
+
+      it "supports launching the spring and fall no-summer fake test user" do
+        expect {
+          post :create, params: {
+            client_agency_id: "sandbox",
+            test_scenario: "spring_fall_no_summer_morgan",
+            reporting_window_start: "06/01/2025"
+          }
+        }.to change(ActivityFlowInvitation, :count).by(1)
+          .and not_change(ActivityFlow, :count)
+          .and not_change(EducationActivity, :count)
+          .and not_change(NscEnrollmentTerm, :count)
+
+        invitation = ActivityFlowInvitation.last
+        expect(invitation.reference_id).to eq("demo-spring_fall_no_summer_morgan")
+        expect(response).to redirect_to(%r{/activities/start/#{invitation.auth_token}})
+        expect(response.location).to include("reporting_window_start=2025-06-01")
+      end
+    end
+
+    context "with pre-populated activities" do
+      it "creates an invitation with a volunteering activity when volunteering is enabled" do
+        Timecop.freeze(Date.new(2026, 5, 13)) do
+          expect {
+            post :create, params: {
+              client_agency_id: "sandbox",
+              launch_type: "tokenized",
+              volunteering_enabled: "1",
+              volunteering_organization_name: "Food Bank",
+              volunteering_hours_per_month: "8"
+            }
+          }.to change(ActivityFlowInvitation, :count).by(1)
+
+          invitation = ActivityFlowInvitation.last
+          activities = invitation.pre_populated_activities
+          expect(activities.length).to eq(1)
+          expect(activities[0]["type"]).to eq("volunteering")
+          expect(activities[0]["organization_name"]).to eq("Food Bank")
+          expect(activities[0]["months"]).to all(include("hours" => 8))
+          expect(activities[0]["months"].map { |m| m["month"] }).to include("2026-03-01", "2026-04-01")
+        end
+      end
+
+      it "creates an invitation with an employment activity when employment is enabled" do
+        expect {
+          post :create, params: {
+            client_agency_id: "sandbox",
+            launch_type: "tokenized",
+            employment_enabled: "1",
+            employment_employer_name: "Globex",
+            employment_hours_per_month: "20",
+            employment_gross_income_per_month: "800"
+          }
+        }.to change(ActivityFlowInvitation, :count).by(1)
+
+        invitation = ActivityFlowInvitation.last
+        activities = invitation.pre_populated_activities
+        expect(activities.length).to eq(1)
+        expect(activities[0]["type"]).to eq("employment")
+        expect(activities[0]["employer_name"]).to eq("Globex")
+        expect(activities[0]["months"]).to all(include("hours" => 20, "gross_income" => 800))
+      end
+
+      it "creates an invitation with both activity types when both are enabled" do
+        post :create, params: {
+          client_agency_id: "sandbox",
+          launch_type: "tokenized",
+          volunteering_enabled: "1",
+          volunteering_organization_name: "Red Cross",
+          volunteering_hours_per_month: "12",
+          employment_enabled: "1",
+          employment_employer_name: "Acme Corp",
+          employment_hours_per_month: "40",
+          employment_gross_income_per_month: "1200"
+        }
+
+        activities = ActivityFlowInvitation.last.pre_populated_activities
+        expect(activities.map { |a| a["type"] }).to contain_exactly("volunteering", "employment")
+      end
+
+      it "creates an invitation with empty pre_populated_activities when neither is enabled" do
+        post :create, params: {
+          client_agency_id: "sandbox",
+          launch_type: "tokenized"
+        }
+        expect(ActivityFlowInvitation.last.pre_populated_activities).to eq([])
       end
     end
 

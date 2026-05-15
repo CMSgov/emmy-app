@@ -44,11 +44,9 @@ RUN apt-get update -qq && \
 # hadolint ignore=DL3008
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
-      gir1.2-gdkpixbuf-2.0 \
-      libgdk-pixbuf-2.0-0 \
-      libgdk-pixbuf-2.0-dev \
-      libgdk-pixbuf2.0-bin \
-      libgdk-pixbuf2.0-common \
+      liblcms2-2 \
+      liblcms2-dev \
+      linux-libc-dev \
     && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
@@ -180,8 +178,9 @@ RUN apt-get update -qq && \
         && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
-# Install custom db migrate script
+# Install custom database scripts
 COPY bin/db-migrate /usr/bin/
+COPY bin/db-drop-schema /usr/bin/
 
 # Copy built artifacts: gems, application, binary dependencies
 COPY --from=release-build /usr/local/bundle /usr/local/bundle
