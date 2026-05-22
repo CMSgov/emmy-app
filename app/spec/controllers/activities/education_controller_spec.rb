@@ -110,37 +110,31 @@ RSpec.describe Activities::EducationController, type: :controller do
       end
     end
 
-    context "when the EducationActivity has succeeded" do
+    context "when the EducationActivity is validated and succeeded" do
       before do
-        education_activity.update(status: :succeeded)
-        allow(controller).to receive(:testing_synchronization_page?)
-          .and_return(false)
-      end
-
-      it "redirects via after_activity_path" do
-        get :show, params: { id: education_activity.id }
-
-        expect(response).to redirect_to(activities_flow_root_path)
-      end
-    end
-
-    context "when the EducationActivity has succeeded and routing requirements are met" do
-      before do
-        education_activity.update(status: :succeeded)
+        education_activity.update(status: :succeeded, draft: true)
         create(:nsc_enrollment_term, education_activity: education_activity, enrollment_status: :half_time)
         allow(controller).to receive(:testing_synchronization_page?).and_return(false)
       end
 
-      it "redirects to summary" do
+      it "redirects to education edit to review NSC enrollment details first" do
         get :show, params: { id: education_activity.id }
 
-        expect(response).to redirect_to(activities_flow_summary_path)
+        expect(response).to redirect_to(
+          edit_activities_flow_education_path(id: education_activity.id)
+        )
+      end
+
+      it "does not publish the activity (defers until the review form is submitted)" do
+        get :show, params: { id: education_activity.id }
+
+        expect(education_activity.reload.draft).to be(true)
       end
     end
 
     context "when the EducationActivity is partially self-attested and succeeded" do
       before do
-        education_activity.update(status: :succeeded, data_source: :partially_self_attested)
+        education_activity.update(status: :succeeded, data_source: :partially_self_attested, draft: true)
         create(:nsc_enrollment_term, :less_than_half_time, education_activity: education_activity)
         allow(controller).to receive(:testing_synchronization_page?)
           .and_return(false)
@@ -152,6 +146,44 @@ RSpec.describe Activities::EducationController, type: :controller do
         expect(response).to redirect_to(
           edit_activities_flow_education_path(id: education_activity.id)
         )
+      end
+
+      it "does not publish the activity (defers until the review form is submitted)" do
+        get :show, params: { id: education_activity.id }
+
+        expect(education_activity.reload.draft).to be(true)
+      end
+    end
+  end
+
+  describe "PATCH #sync" do
+    let(:education_activity) { create(:education_activity, activity_flow: activity_flow) }
+
+    context "when the EducationActivity is validated and succeeded" do
+      before do
+        education_activity.update(status: :succeeded, draft: true)
+        create(:nsc_enrollment_term, education_activity: education_activity, enrollment_status: :half_time)
+        allow(controller).to receive(:testing_synchronization_page?).and_return(false)
+      end
+
+      it "does not publish the activity (defers until the review form is submitted)" do
+        patch :sync, params: { education_id: education_activity.id }, format: :turbo_stream
+
+        expect(education_activity.reload.draft).to be(true)
+      end
+    end
+
+    context "when the EducationActivity is partially self-attested and succeeded" do
+      before do
+        education_activity.update(status: :succeeded, data_source: :partially_self_attested, draft: true)
+        create(:nsc_enrollment_term, :less_than_half_time, education_activity: education_activity)
+        allow(controller).to receive(:testing_synchronization_page?).and_return(false)
+      end
+
+      it "does not publish the activity (defers until the review form is submitted)" do
+        patch :sync, params: { education_id: education_activity.id }, format: :turbo_stream
+
+        expect(education_activity.reload.draft).to be(true)
       end
     end
   end
@@ -316,6 +348,36 @@ RSpec.describe Activities::EducationController, type: :controller do
         doc = Capybara.string(response.body)
         edit_link = doc.find("a", text: I18n.t("activities.hub.edit"))
         expect(edit_link[:href]).to include("from_review=1")
+      end
+
+      context "with previously uploaded documents" do
+        before do
+          Rails.application.config.active_storage.service = :local
+          education_activity.document_uploads.attach(
+            io: StringIO.new("%PDF-1.4"),
+            filename: "verification.pdf",
+            content_type: "application/pdf"
+          )
+        end
+
+        it "renders the uploaded documents section with an edit link" do
+          get :review, params: { id: education_activity.id }
+
+          expect(response.body).to include(I18n.t("activities.document_uploads.heading", document_count: 1))
+          expect(response.body).to include("verification.pdf")
+          expect(response.body).to include(
+            new_activities_flow_education_document_upload_path(education_id: education_activity, from_review: 1)
+          )
+          expect(response.body).not_to include(I18n.t("activities.document_uploads.remove_file"))
+        end
+      end
+
+      context "without uploaded documents" do
+        it "does not render the uploaded documents heading" do
+          get :review, params: { id: education_activity.id }
+
+          expect(response.body).not_to include(I18n.t("activities.document_uploads.heading", document_count: 0))
+        end
       end
     end
 
