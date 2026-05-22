@@ -1,0 +1,24 @@
+name: Run New Proposed Workflow
+# This workflow is designed to test a PR workflow because 
+# GitHub Actions can be hard to test before merging to the default branch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for running the proposed workflow'
+        required: false
+        default: 'Testing'
+
+jobs:
+  test-proposed-logic:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run a dummy step
+        run: |
+          echo "Running proposed workflow logic..."
+          echo "Reason: ${{ github.event.inputs.reason }}"
+          echo "This is where you would paste the content of the workflow you are testing."
