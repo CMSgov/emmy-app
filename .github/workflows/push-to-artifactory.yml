@@ -47,8 +47,8 @@ jobs:
             echo "image_uri=${IMAGE_REPOSITORY}:${GITHUB_SHA::7}"
             echo "latest_image_uri=${IMAGE_REPOSITORY}:latest"
           } >> "$GITHUB_OUTPUT"
-          
-            - name: Fetch Artifactory credentials
+
+      - name: Fetch Artifactory credentials
         id: artifactory-credentials
         env:
           ARTIFACTORY_SECRET_ARN: ${{ vars.ARTIFACTORY_SECRET_ARN }}
