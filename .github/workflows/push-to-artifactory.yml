@@ -6,11 +6,23 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  AWS_REGION: us-east-1
+  CONTAINER_NAME: ${{ vars.ECS_CONTAINER_NAME || 'emmy-api' }}
+  IMAGE_REPOSITORY: ${{ vars.EMMY_IMAGE_REPO || 'artifactory.cloud.cms.gov/emmy-docker/emmy-api' }}
+  PLATFORMS: ${{ vars.DOCKER_PLATFORMS || 'linux/amd64' }}
+
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    name: push image
+    runs-on: "codebuild-emmy-github-runner-emmy-api-${{ github.run_id }}-${{ github.run_attempt }}"
     permissions:
       contents: read
+      id-token: write
+    outputs:
+      image_tag: ${{ steps.image-metadata.outputs.image_tag }}
+      image_uri: ${{ steps.image-metadata.outputs.image_uri }}
+      latest_image_uri: ${{ steps.image-metadata.outputs.latest_image_uri }}
 
     steps:
       - name: Checkout repository
@@ -19,32 +31,91 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME || format('arn:aws:iam::{0}:role/{1}', vars.AWS_ACCOUNT_ID, vars.AWS_ROLE_NAME) }}
+
+
+      - name: Derive image metadata
+        id: image-metadata
+        shell: bash
+        run: |
+          {
+            echo "image_tag=${GITHUB_SHA::7}"
+            echo "image_uri=${IMAGE_REPOSITORY}:${GITHUB_SHA::7}"
+            echo "latest_image_uri=${IMAGE_REPOSITORY}:latest"
+          } >> "$GITHUB_OUTPUT"
+          
+            - name: Fetch Artifactory credentials
+        id: artifactory-credentials
+        env:
+          ARTIFACTORY_SECRET_ARN: ${{ vars.ARTIFACTORY_SECRET_ARN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${ARTIFACTORY_SECRET_ARN:-}" ]]; then
+            echo "error: required Actions variable ARTIFACTORY_SECRET_ARN is not set" >&2
+            exit 1
+          fi
+
+          secret_string="$(aws secretsmanager get-secret-value --secret-id "$ARTIFACTORY_SECRET_ARN" --query 'SecretString' --output text)"
+
+          if [[ -z "${secret_string:-}" || "$secret_string" == "None" ]]; then
+            echo "error: secret $ARTIFACTORY_SECRET_ARN does not contain a SecretString payload" >&2
+            exit 1
+          fi
+
+          if ! jq -e . >/dev/null 2>&1 <<<"$secret_string"; then
+            echo "error: secret $ARTIFACTORY_SECRET_ARN payload is not valid JSON" >&2
+            exit 1
+          fi
+
+          get_secret_field() {
+            local key="$1"
+            local value
+
+            if ! value="$(jq -er --arg key "$key" '.[$key] | select(type == "string" and length > 0)' <<<"$secret_string" 2>/dev/null)"; then
+              echo "error: secret $ARTIFACTORY_SECRET_ARN payload must include a non-empty '$key' field" >&2
+              exit 1
+            fi
+
+            printf '%s\n' "$value"
+          }
+
+          username="$(get_secret_field username)"
+          password="$(get_secret_field password)"
+
+          printf '::add-mask::%s\n' "$username"
+          printf '::add-mask::%s\n' "$password"
+
+          {
+            printf 'username<<EOF\n%s\nEOF\n' "$username"
+            printf 'password<<EOF\n%s\nEOF\n' "$password"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Log in to Artifactory
         uses: docker/login-action@v3
         with:
           registry: artifactory.cloud.cms.gov
-          username: ${{ secrets.ARTIFACTORY_USERNAME }}
-          password: ${{ secrets.ARTIFACTORY_PASSWORD }}
+          username: ${{ steps.artifactory-credentials.outputs.username }}
+          password: ${{ steps.artifactory-credentials.outputs.password }}
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: artifactory.cloud.cms.gov/emmy-docker/emmy-api
-          tags: |
-            type=sha,prefix=,format=long
-            type=ref,event=branch
-            latest
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./app
-          file: ./app/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64
-          build-args: |
-            RUN_USER=nodummy
-            RUN_UID=4000
+      - name: Build and push
+        env:
+          IMAGE_URI: ${{ steps.image-metadata.outputs.image_uri }}
+          LATEST_IMAGE_URI: ${{ steps.image-metadata.outputs.latest_image_uri }}
+          NO_PROXY: artifactory.cloud.cms.gov,.cloud.cms.gov,10.0.0.0/8,169.254.169.254,169.254.170.2
+        run: |
+          docker buildx build \
+            --builder "${{ steps.buildx.outputs.name }}" \
+            --file ./app/Dockerfile \
+            -t "$IMAGE_URI" \
+            -t "$LATEST_IMAGE_URI" \
+            --platform linux/amd64 \
+            --build-arg RUN_USER=nodummy \
+            --build-arg RUN_UID=4000 \
+            --push \
+            ./app
