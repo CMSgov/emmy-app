@@ -32,9 +32,6 @@ gem "stimulus-rails"
 # Bundle and process CSS [https://github.com/rails/cssbundling-rails]
 gem "cssbundling-rails"
 gem "premailer-rails"
-# Pin css_parser to 1.17.x: 1.19.0 added a positional-arg deprecation warning
-# in RuleSet#initialize that premailer 1.23.0 still triggers. Drop when premailer
-# ships a fix.
 gem "css_parser", "~> 1.22.0"
 
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
@@ -72,7 +69,7 @@ gem "solid_queue", ">= 0.3.0"
 gem "mission_control-jobs"
 
 
-gem "faraday", "~> 2.14.1"
+gem "faraday", "~> 2.14.2"
 
 gem "wicked_pdf"
 gem "actioncable-enhanced-postgresql-adapter"
@@ -100,11 +97,13 @@ group :development, :test do
   gem "dotenv-rails", "~> 3.2"
   gem "erb_lint", require: false
   gem "i18n-tasks", "~> 1.1", require: false
+  gem "parallel_tests", "~> 5.5"
   gem "rspec-rails", "~> 8.0"
   gem "rubocop"
   gem "rubocop-rspec"
   gem "rubocop-rails-omakase"
   gem "selenium-webdriver", ">= 4.26.0"
+  gem "test-prof", "~> 1.4"
   gem "timecop"
   gem "mutex_m"
 end

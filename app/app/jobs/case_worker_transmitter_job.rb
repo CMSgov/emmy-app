@@ -1,6 +1,8 @@
 class CaseWorkerTransmitterJob < ApplicationJob
   attr_reader :cbv_flow
 
+  RedactedApplicantError = Class.new(StandardError)
+
   queue_as :default
 
   RETRY_WAITS = [ 5.minutes, 10.minutes, 30.minutes, 1.hour, 4.hours ].freeze
@@ -27,6 +29,12 @@ class CaseWorkerTransmitterJob < ApplicationJob
     @current_agency = current_agency(@cbv_flow)
 
     with_flow_tags(@cbv_flow) do
+      if @cbv_flow.cbv_applicant&.redacted_at.present?
+        NewRelic::Agent.notice_error(
+          RedactedApplicantError.new("Transmitting cbv_flow #{cbv_flow_id} with redacted applicant #{@cbv_flow.cbv_applicant_id}")
+        )
+      end
+
       aggregator_report = AggregatorReportFetcher.new(@cbv_flow).report
 
       transmitter_class.new(@cbv_flow, @current_agency, aggregator_report).deliver

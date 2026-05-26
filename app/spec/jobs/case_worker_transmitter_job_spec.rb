@@ -102,6 +102,27 @@ RSpec.describe CaseWorkerTransmitterJob, type: :job do
       cbv_flow.update(consented_to_authorized_use_at: Time.now)
     end
 
+    context "when the applicant has been redacted" do
+      let(:transmission_method) { "shared_email" }
+      let(:transmission_method_configuration) { { "email" => "caseworker@example.com" } }
+
+      before do
+        cbv_flow.cbv_applicant.redact!
+        allow(NewRelic::Agent).to receive(:notice_error)
+      end
+
+      it "reports a RedactedApplicantError to New Relic" do
+        described_class.new.perform(cbv_flow.id)
+        expect(NewRelic::Agent).to have_received(:notice_error)
+          .with(instance_of(CaseWorkerTransmitterJob::RedactedApplicantError))
+      end
+
+      it "still transmits the report" do
+        expect { described_class.new.perform(cbv_flow.id) }
+          .to change { cbv_flow.reload.transmitted_at }.from(nil)
+      end
+    end
+
     context "when transmission method is shared_email" do
       let(:transmission_method) { "shared_email" }
       let(:transmission_method_configuration) { {
